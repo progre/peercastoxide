@@ -4,24 +4,23 @@ mod core;
 mod features;
 
 use anyhow::Result;
-use clap::App;
-use clap::Arg;
+use clap::{Arg, Command};
 
 use crate::core::legacy::server::server::server;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let matches = App::new(env!("CARGO_PKG_NAME"))
+    let matches = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(
-            Arg::with_name("ip_address_from_peer_cast")
+            Arg::new("ip_address_from_peer_cast")
                 .help("Ip address from PeerCast (host:port)")
                 .required(true),
         )
         .arg(
-            Arg::with_name("peer_cast_host")
+            Arg::new("peer_cast_host")
                 .help("PeerCast host (host:port)")
                 .required(true),
         )

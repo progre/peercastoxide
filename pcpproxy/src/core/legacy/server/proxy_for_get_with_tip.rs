@@ -4,10 +4,11 @@ use std::time::Instant;
 
 use anyhow::Result;
 use log::*;
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::OwnedReadHalf;
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::net::TcpStream;
-use tokio::prelude::*;
 use tokio::spawn;
 use tokio::sync::RwLock;
 
@@ -33,11 +34,11 @@ async fn pipe_for_get_with_tip(
         if let Some(idx) = buf[0..n].iter().position(|&x| x == b'\n') {
             let line = String::from_utf8(buf[0..idx].to_vec()).unwrap();
             let replaced_line = line.replace(tip_host, ip_address_from_peer_cast);
-            to.write(replaced_line.as_bytes()).await?;
-            to.write(&buf[idx..n]).await?;
+            to.write_all(replaced_line.as_bytes()).await?;
+            to.write_all(&buf[idx..n]).await?;
             continue;
         }
-        to.write(&buf[0..n]).await?;
+        to.write_all(&buf[0..n]).await?;
     }
 }
 

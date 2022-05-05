@@ -57,7 +57,7 @@ where
         }
         let mut buf: Vec<u8> = Vec::new();
         buf.resize(length as usize, 0);
-        self.stream.read(buf.as_mut()).await?;
+        self.stream.read_exact(buf.as_mut()).await?;
         Ok(Some(Atom::Child(AtomChild::new(
             Cow::Owned(identifier),
             buf,
@@ -81,7 +81,7 @@ where
     }
 
     pub async fn write(&mut self, atom: &Atom) -> Result<()> {
-        self.stream.write(atom.identifier()).await?;
+        self.stream.write_all(atom.identifier()).await?;
         match atom {
             Atom::Parent(parent) => {
                 let length = 0x80000000u32 | parent.count() as u32;
@@ -90,7 +90,7 @@ where
             }
             Atom::Child(child) => {
                 self.stream.write_u32_le(child.data().len() as u32).await?;
-                self.stream.write(child.data()).await?;
+                self.stream.write_all(child.data()).await?;
                 Ok(())
             }
         }

@@ -35,10 +35,10 @@ async fn pipe_for_get_channel(
     let mut buf = big_vec(1024 * 1024);
     loop {
         let n = from.read(&mut buf).await?;
-        to.write(&buf[0..n]).await?;
+        to.write_all(&buf[0..n]).await?;
         let text = String::from_utf8(buf[0..n].to_vec()).unwrap();
         printer.print(&text);
-        if text.replace("\r", "").ends_with("\n\n") {
+        if text.replace('\r', "").ends_with("\n\n") {
             break;
         }
         trace!("loop");

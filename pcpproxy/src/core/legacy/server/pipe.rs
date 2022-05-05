@@ -2,8 +2,8 @@ use std::{borrow::Cow, cmp::min, net::Ipv4Addr};
 
 use anyhow::Result;
 use log::*;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::OwnedWriteHalf;
-use tokio::prelude::*;
 use tokio::{net::tcp::OwnedReadHalf, sync::Mutex};
 
 use crate::{
@@ -28,7 +28,7 @@ pub fn big_vec<T>(len: usize) -> Vec<T> {
 fn to_ascii_str(buf: &[u8]) -> String {
     buf.iter()
         .map(|&x| {
-            (if 0x20 <= x && x <= 0x7e {
+            (if (0x20..=0x7e).contains(&x) {
                 x as char
             } else {
                 '�'
@@ -59,7 +59,7 @@ pub async fn pipe(
             }
             trace!("{}{}{}", color.header(), &buf_str, color.footer(),);
         }
-        to.write(&buf[0..n]).await?;
+        to.write_all(&buf[0..n]).await?;
     }
 }
 

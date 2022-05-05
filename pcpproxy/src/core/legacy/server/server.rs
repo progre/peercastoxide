@@ -21,13 +21,13 @@ fn find_channel_id_and_tip_host(line: &str) -> Option<(String, String)> {
     let regex =
         Regex::new(r"/[0-9A-Za-z]+/([0-9A-Fa-f]+)\?tip=([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+)")
             .unwrap();
-    let captures = &regex.captures(&line)?;
+    let captures = &regex.captures(line)?;
     Some((captures[1].into(), captures[2].into()))
 }
 
 fn find_channel_id(line: &str) -> Option<String> {
     let regex = Regex::new(r"/channel/([0-9A-Fa-f]+)").unwrap();
-    let captures = &regex.captures(&line)?;
+    let captures = &regex.captures(line)?;
     Some(captures[1].into())
 }
 

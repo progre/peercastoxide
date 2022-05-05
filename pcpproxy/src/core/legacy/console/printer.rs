@@ -63,7 +63,7 @@ impl<'a> HttpPrinter<'a> {
         print!(
             "{}{}{}",
             self.color.header(),
-            text.replace("\r", "<CR>").replace("\n", "<LF>\n"),
+            text.replace('\r', "<CR>").replace('\n', "<LF>\n"),
             self.color.footer(),
         );
     }
