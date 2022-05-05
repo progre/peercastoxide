@@ -1,13 +1,13 @@
 #![warn(clippy::all)]
 
-mod console;
-mod pcp;
-mod server;
+mod core;
+mod features;
 
-use crate::server::server::server;
 use anyhow::Result;
 use clap::App;
 use clap::Arg;
+
+use crate::core::legacy::server::server::server;
 
 #[tokio::main]
 async fn main() -> Result<()> {

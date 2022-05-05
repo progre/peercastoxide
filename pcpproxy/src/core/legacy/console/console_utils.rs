@@ -1,4 +1,4 @@
-use crate::console::console_color::ConsoleColor;
+use super::console_color::ConsoleColor;
 
 pub fn proxy_message(
     incoming_addr: &str,

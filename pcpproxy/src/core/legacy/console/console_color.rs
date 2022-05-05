@@ -1,10 +1,11 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::Hash;
+use std::hash::Hasher;
+
 use log::*;
 use once_cell::sync::Lazy;
 use rand::{RngCore, SeedableRng};
 use rand_xoshiro::Xoshiro256StarStar;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::Hash;
-use std::hash::Hasher;
 
 static COLORS: Lazy<Vec<u8>> = Lazy::new(|| {
     (0..0xff)
@@ -27,7 +28,7 @@ impl ConsoleColor {
         Self::new(COLORS[idx])
     }
 
-    pub fn new(color: u8)  -> Self{
+    pub fn new(color: u8) -> Self {
         Self {
             color_header: format!("\x1b[38;5;{}m", color),
         }

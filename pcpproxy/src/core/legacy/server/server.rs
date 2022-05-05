@@ -1,18 +1,21 @@
-use crate::console::console_color::ConsoleColor;
-use crate::server::pipe::pipe;
-use crate::server::proxy_for_get_channel::proxy_for_get_channel;
-use crate::server::proxy_for_get_with_tip::proxy_for_get_with_tip;
-use anyhow::Result;
-use log::*;
-use regex::Regex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
+
+use anyhow::Result;
+use log::*;
+use regex::Regex;
 use tokio::net::tcp::ReadHalf;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::spawn;
 use tokio::sync::RwLock;
+
+use crate::core::legacy::console::console_color::ConsoleColor;
+
+use super::pipe::pipe;
+use super::proxy_for_get_channel::proxy_for_get_channel;
+use super::proxy_for_get_with_tip::proxy_for_get_with_tip;
 
 fn find_channel_id_and_tip_host(line: &str) -> Option<(String, String)> {
     let regex =

@@ -1,4 +1,6 @@
-use crate::{console::console_color::ConsoleColor, pcp::atom::Atom};
+use crate::features::pcp::atom::Atom;
+
+use super::console_color::ConsoleColor;
 
 pub struct PcpPrinter<'a> {
     stack: Vec<i32>,

@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 
-use super::atom::{Atom, AtomChild, AtomParent};
 use anyhow::anyhow;
 use anyhow::Result;
 use log::*;
@@ -8,6 +7,8 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWrite;
 use tokio::io::AsyncWriteExt;
+
+use super::atom::{Atom, AtomChild, AtomParent};
 
 pub struct AtomStreamReader<T>
 where

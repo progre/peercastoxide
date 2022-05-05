@@ -1,7 +1,9 @@
-use crate::pcp::atom_identifier::*;
-use derive_new::new;
 use std::{borrow::Cow, io::Write};
 use std::{fmt, net::Ipv4Addr};
+
+use derive_new::new;
+
+use super::atom_identifier::*;
 
 fn to_string(identifier: &[u8; 4]) -> String {
     identifier
@@ -84,11 +86,11 @@ impl AtomChild {
 
     pub fn to_u16(&self) -> u16 {
         let mut num = [0u8; 2];
-        (&mut num[0..2]).write(&self.data).unwrap();
+        (&mut num[0..2]).write_all(&self.data).unwrap();
         u16::from_le_bytes(num)
     }
 
-    pub fn to_cow_str<'a>(&'a self) -> Cow<'a, str> {
+    pub fn to_cow_str(&self) -> Cow<'_, str> {
         String::from_utf8_lossy(&self.data)
     }
 
@@ -131,7 +133,7 @@ impl fmt::Display for Atom {
                         if child.data().len() == 4 =>
                     {
                         let mut num = [0u8; 4];
-                        (&mut num[0..4]).write(child.data()).unwrap();
+                        (&mut num[0..4]).write_all(child.data()).unwrap();
                         u32::from_le_bytes(num).to_string()
                     }
                     IP | RIP | UPIP if child.data().len() == 4 => child.to_ipv4().to_string(),

@@ -1,18 +1,21 @@
-use super::sub_servers::SubServers;
+use std::{borrow::Cow, cmp::min, net::Ipv4Addr};
+
+use anyhow::Result;
+use log::*;
+use tokio::net::tcp::OwnedWriteHalf;
+use tokio::prelude::*;
+use tokio::{net::tcp::OwnedReadHalf, sync::Mutex};
+
 use crate::{
-    console::{console_color::ConsoleColor, printer::PcpPrinter},
-    pcp::{
+    core::legacy::console::{console_color::ConsoleColor, printer::PcpPrinter},
+    features::pcp::{
         atom::{Atom, AtomChild},
         atom_identifier::{HOST, IP, PORT},
         atom_stream::{AtomStreamReader, AtomStreamWriter},
     },
 };
-use anyhow::Result;
-use log::*;
-use std::{borrow::Cow, cmp::min, net::Ipv4Addr};
-use tokio::net::tcp::OwnedWriteHalf;
-use tokio::prelude::*;
-use tokio::{net::tcp::OwnedReadHalf, sync::Mutex};
+
+use super::sub_servers::SubServers;
 
 const RELAY_HOOK: bool = false;
 

@@ -1,7 +1,8 @@
+use std::{collections::HashMap, net::Ipv4Addr};
+
 use anyhow::Result;
 use derive_new::new;
 use log::*;
-use std::{collections::HashMap, net::Ipv4Addr};
 use tokio::prelude::*;
 use tokio::{net::TcpListener, spawn};
 
