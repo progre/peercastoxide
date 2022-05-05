@@ -1,7 +1,4 @@
-use crate::{
-    console::console_color::ConsoleColor,
-    pcp::atom::{Atom, AtomContent},
-};
+use crate::{console::console_color::ConsoleColor, pcp::atom::Atom};
 
 pub struct PcpPrinter<'a> {
     stack: Vec<i32>,
@@ -28,15 +25,16 @@ impl<'a> PcpPrinter<'a> {
             atom,
             self.color.footer()
         );
-        if let AtomContent::Parent(parent) = atom.content() {
+        if let Atom::Parent(parent) = &atom {
             self.stack.push(parent.count());
-        } else {
-            if let Some(last) = self.stack.last_mut() {
-                *last -= 1;
-                if *last == 0 {
-                    self.stack.pop();
-                }
+            return;
+        }
+        while let Some(last) = self.stack.last_mut() {
+            *last -= 1;
+            if *last > 0 {
+                break;
             }
+            self.stack.pop();
         }
     }
 }

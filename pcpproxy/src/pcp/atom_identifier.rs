@@ -1,9 +1,5 @@
 #![allow(dead_code)]
 
-use std::borrow::Cow;
-
-use super::atom::AtomIdentifier;
-
 pub const AGNT: &[u8; 4] = b"agnt";
 pub const ALBM: &[u8; 4] = b"albm";
 pub const BCID: &[u8; 4] = b"bcid";
@@ -59,18 +55,3 @@ pub const VEVP: &[u8; 4] = b"vevp";
 pub const VEXN: &[u8; 4] = b"vexn";
 pub const VEXP: &[u8; 4] = b"vexp";
 pub const VRVP: &[u8; 4] = b"vrvp";
-pub const VRVP2: AtomIdentifier = AtomIdentifier::borrowed(b"vrvp");
-
-// impl<'a> From<AtomIdentifier> for Cow<'a, AtomIdentifier> {
-//     #[inline]
-//     fn from(s: AtomIdentifier) -> Cow<'a, AtomIdentifier> {
-//         Cow::Owned(s)
-//     }
-// }
-
-// impl<'a> From<&'a AtomIdentifier> for Cow<'a, AtomIdentifier> {
-//     #[inline]
-//     fn from(s: &'a AtomIdentifier) -> Cow<'a, AtomIdentifier> {
-//         Cow::Borrowed(&s)
-//     }
-// }

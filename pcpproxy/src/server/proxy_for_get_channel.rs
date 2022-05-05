@@ -1,3 +1,4 @@
+use super::sub_servers::SubServers;
 use crate::console::console_utils::proxy_message;
 use crate::console::{console_color::ConsoleColor, printer::HttpPrinter};
 use crate::server::pipe::big_vec;
@@ -6,15 +7,15 @@ use anyhow::Result;
 use log::*;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
+use std::{net::IpAddr, time::Instant};
 use thiserror::Error;
-use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::OwnedReadHalf;
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::net::TcpStream;
 use tokio::spawn;
 use tokio::sync::RwLock;
+use tokio::{io::AsyncReadExt, sync::Mutex};
 
 #[derive(Error, Debug)]
 #[error("host not found error")]
@@ -23,6 +24,7 @@ pub struct HostNotFoundError {}
 async fn pipe_for_get_channel(
     mut from: OwnedReadHalf,
     mut to: OwnedWriteHalf,
+    sub_servers: &Mutex<SubServers>,
     color: ConsoleColor,
 ) -> Result<()> {
     let mut printer = HttpPrinter::new(&color);
@@ -38,7 +40,7 @@ async fn pipe_for_get_channel(
         trace!("loop");
     }
     printer.print_eos();
-    pipe_pcp(from, to, color).await
+    pipe_pcp(from, to, sub_servers, color).await
 }
 
 pub async fn proxy_for_get_channel(
@@ -46,7 +48,11 @@ pub async fn proxy_for_get_channel(
     channel_id: String,
     id_table: Arc<RwLock<HashMap<String, (String, Instant)>>>,
 ) -> Result<()> {
-    let local_addr = incoming_stream.local_addr().unwrap();
+    let local_addr = if let IpAddr::V4(local_addr) = incoming_stream.local_addr().unwrap().ip() {
+        local_addr
+    } else {
+        unreachable!();
+    };
     let incoming_addr = incoming_stream.peer_addr().unwrap();
 
     let (incoming_read, incoming_write) = incoming_stream.into_split();
@@ -75,7 +81,29 @@ pub async fn proxy_for_get_channel(
         channel_id,
     );
 
-    spawn(async move { pipe_for_get_channel(incoming_read, client_write, incoming_color).await });
-    spawn(async move { pipe_for_get_channel(client_read, incoming_write, client_color).await });
+    let sub_servers = Arc::new(Mutex::new(SubServers::new(local_addr)));
+    {
+        let sub_servers = sub_servers.clone();
+        spawn(async move {
+            pipe_for_get_channel(
+                incoming_read,
+                client_write,
+                sub_servers.as_ref(),
+                incoming_color,
+            )
+            .await
+        });
+    }
+    {
+        spawn(async move {
+            pipe_for_get_channel(
+                client_read,
+                incoming_write,
+                sub_servers.as_ref(),
+                client_color,
+            )
+            .await
+        });
+    }
     Ok(())
 }

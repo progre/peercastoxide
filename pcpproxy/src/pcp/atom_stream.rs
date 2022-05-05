@@ -1,5 +1,6 @@
-use crate::pcp::atom::Atom;
-use crate::pcp::atom::AtomContent;
+use std::borrow::Cow;
+
+use super::atom::{Atom, AtomChild, AtomParent};
 use anyhow::anyhow;
 use anyhow::Result;
 use log::*;
@@ -36,16 +37,30 @@ where
         let is_parent = length_src & 0x80000000 != 0;
         let length = length_src & 0x7fffffff;
         if length > 1024 * 1024 {
-            trace!("broken");
+            trace!(
+                "broken id: {}, length: {}",
+                identifier
+                    .iter()
+                    .map(|&x| (x as char).to_string())
+                    .collect::<Vec<_>>()
+                    .join(""),
+                length
+            );
             return Err(anyhow!("length too long"));
         }
         if is_parent {
-            return Ok(Some(Atom::parent(identifier, length as i32)));
+            return Ok(Some(Atom::Parent(AtomParent::new(
+                Cow::Owned(identifier),
+                length as i32,
+            ))));
         }
         let mut buf: Vec<u8> = Vec::new();
         buf.resize(length as usize, 0);
         self.stream.read(buf.as_mut()).await?;
-        Ok(Some(Atom::child(identifier, buf)))
+        Ok(Some(Atom::Child(AtomChild::new(
+            Cow::Owned(identifier),
+            buf,
+        ))))
     }
 }
 
@@ -66,13 +81,13 @@ where
 
     pub async fn write(&mut self, atom: &Atom) -> Result<()> {
         self.stream.write(atom.identifier()).await?;
-        match atom.content() {
-            AtomContent::Parent(parent) => {
+        match atom {
+            Atom::Parent(parent) => {
                 let length = 0x80000000u32 | parent.count() as u32;
                 self.stream.write_u32_le(length).await?;
                 Ok(())
             }
-            AtomContent::Child(child) => {
+            Atom::Child(child) => {
                 self.stream.write_u32_le(child.data().len() as u32).await?;
                 self.stream.write(child.data()).await?;
                 Ok(())

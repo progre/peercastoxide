@@ -1,15 +1,20 @@
-use crate::pcp::{atom::Atom, atom_stream::AtomStreamWriter};
-use crate::pcp::{atom::AtomContent, atom_stream::AtomStreamReader};
+use super::sub_servers::SubServers;
 use crate::{
     console::{console_color::ConsoleColor, printer::PcpPrinter},
-    pcp::atom_identifier::{HOST, IP},
+    pcp::{
+        atom::{Atom, AtomChild},
+        atom_identifier::{HOST, IP, PORT},
+        atom_stream::{AtomStreamReader, AtomStreamWriter},
+    },
 };
 use anyhow::Result;
 use log::*;
-use std::{cmp::min, net::Ipv4Addr};
-use tokio::net::tcp::OwnedReadHalf;
+use std::{borrow::Cow, cmp::min, net::Ipv4Addr};
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::prelude::*;
+use tokio::{net::tcp::OwnedReadHalf, sync::Mutex};
+
+const RELAY_HOOK: bool = false;
 
 pub fn big_vec<T>(len: usize) -> Vec<T> {
     let mut buf = Vec::with_capacity(len);
@@ -55,18 +60,17 @@ pub async fn pipe(
     }
 }
 
-fn start_server() {}
-
 pub async fn pipe_pcp(
     from: OwnedReadHalf,
     to: OwnedWriteHalf,
-    local_addr: Ipv4Addr,
+    sub_servers: &Mutex<SubServers>,
     color: ConsoleColor,
 ) -> Result<()> {
     let mut printer = PcpPrinter::new(&color);
     let mut atom_stream_reader = AtomStreamReader::new(from);
     let mut atom_stream_writer = AtomStreamWriter::new(to);
     let mut host = false;
+    let mut ip: Option<Ipv4Addr> = None;
     loop {
         let atom = if let Some(some) = atom_stream_reader.read().await? {
             some
@@ -74,15 +78,37 @@ pub async fn pipe_pcp(
             return Ok(());
         };
         printer.print(&atom);
-        if host && atom.identifier() == IP {
-            if let AtomContent::Child(child) = atom.content() {
-                if !child.to_ipv4().is_private() {
-                    let atom = Atom::ipv4(IP, local_addr);
-                    atom_stream_writer.write(&atom).await?;
+        if RELAY_HOOK {
+            if host {
+                if ip.is_none() && atom.identifier() == IP {
+                    if let Atom::Child(child) = &atom {
+                        let current = child.to_ipv4();
+                        if !current.is_private() {
+                            ip = Some(current);
+                            continue;
+                        }
+                    }
+                } else if ip.is_some() && atom.identifier() == PORT {
+                    if let Atom::Child(child) = &atom {
+                        let port = child.to_u16();
+                        let (hook_ip, hook_port) = sub_servers
+                            .lock()
+                            .await
+                            .start_server(ip.unwrap(), port)
+                            .await?;
+                        ip = None;
+                        host = false;
+
+                        let atom = Atom::Child(AtomChild::ipv4(Cow::Borrowed(IP), hook_ip));
+                        atom_stream_writer.write(&atom).await?;
+                        let atom = Atom::Child(AtomChild::u16(Cow::Borrowed(PORT), hook_port));
+                        atom_stream_writer.write(&atom).await?;
+                        continue;
+                    }
                 }
+            } else if atom.identifier() == HOST {
+                host = true;
             }
-        } else if atom.identifier() == HOST {
-            host = true;
         }
         atom_stream_writer.write(&atom).await?;
     }
