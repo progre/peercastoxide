@@ -19,8 +19,12 @@ use super::sub_servers::SubServers;
 
 const RELAY_HOOK: bool = false;
 
-pub fn big_vec<T>(len: usize) -> Vec<T> {
+pub fn big_vec<T: Default>(len: usize) -> Vec<T> {
     let mut buf = Vec::with_capacity(len);
+    let remaining = buf.spare_capacity_mut();
+    for item in remaining {
+        item.write(Default::default());
+    }
     unsafe { buf.set_len(len) };
     buf
 }
