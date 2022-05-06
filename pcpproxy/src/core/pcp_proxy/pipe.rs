@@ -7,7 +7,7 @@ use tokio::net::tcp::OwnedWriteHalf;
 use tokio::{net::tcp::OwnedReadHalf, sync::Mutex};
 
 use crate::{
-    core::legacy::console::{console_color::ConsoleColor, printer::PcpPrinter},
+    features::console::{console_color::ConsoleColor, printer::PcpPrinter},
     features::pcp::{
         atom::{Atom, AtomChild},
         atom_identifier::{HOST, IP, PORT},
@@ -29,20 +29,6 @@ pub fn big_vec<T: Default>(len: usize) -> Vec<T> {
     buf
 }
 
-fn to_ascii_str(buf: &[u8]) -> String {
-    buf.iter()
-        .map(|&x| {
-            (if (0x20..=0x7e).contains(&x) {
-                x as char
-            } else {
-                '�'
-            })
-            .to_string()
-        })
-        .collect::<Vec<_>>()
-        .join("")
-}
-
 pub async fn pipe(
     mut from: OwnedReadHalf,
     mut to: OwnedWriteHalf,
@@ -57,7 +43,7 @@ pub async fn pipe(
         }
         if !http11 {
             let buf2: &[u8] = &buf[0..n];
-            let buf_str = to_ascii_str(&buf2[0..(min(buf2.len(), 100))]);
+            let buf_str = String::from_utf8_lossy(&buf2[0..(min(buf2.len(), 100))]);
             if buf_str.starts_with("HTTP/1.1") {
                 http11 = true;
             }

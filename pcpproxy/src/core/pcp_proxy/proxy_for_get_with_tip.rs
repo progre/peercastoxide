@@ -12,7 +12,7 @@ use tokio::net::TcpStream;
 use tokio::spawn;
 use tokio::sync::RwLock;
 
-use crate::core::legacy::console::{console_color::ConsoleColor, console_utils::proxy_message};
+use crate::features::console::{console_color::ConsoleColor, console_utils::proxy_message};
 
 use super::pipe::big_vec;
 use super::pipe::pipe;

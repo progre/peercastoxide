@@ -13,8 +13,8 @@ use tokio::spawn;
 use tokio::sync::RwLock;
 use tokio::{io::AsyncReadExt, sync::Mutex};
 
-use crate::core::legacy::console::console_utils::proxy_message;
-use crate::core::legacy::console::{console_color::ConsoleColor, printer::HttpPrinter};
+use crate::features::console::console_utils::proxy_message;
+use crate::features::console::{console_color::ConsoleColor, printer::HttpPrinter};
 
 use super::pipe::big_vec;
 use super::pipe::pipe_pcp;

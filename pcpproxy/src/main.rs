@@ -6,7 +6,7 @@ mod features;
 use anyhow::Result;
 use clap::{Arg, Command};
 
-use crate::core::legacy::server::server::server;
+use crate::core::listen::listen;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
 
     log4rs::init_file("log4rs.yml", Default::default()).unwrap_or_default();
 
-    server(
+    listen(
         matches.value_of("ip_address_from_peer_cast").unwrap(),
         matches.value_of("peer_cast_host").unwrap(),
     )
