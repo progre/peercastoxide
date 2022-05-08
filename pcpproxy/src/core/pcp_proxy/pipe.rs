@@ -1,18 +1,16 @@
 use std::{borrow::Cow, cmp::min, net::Ipv4Addr};
 
 use anyhow::Result;
-use log::*;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::{net::tcp::OwnedReadHalf, sync::Mutex};
 
-use crate::{
-    features::console::{console_color::ConsoleColor, printer::PcpPrinter},
-    features::pcp::{
-        atom::{Atom, AtomChild},
-        atom_identifier::{HOST, IP, PORT},
-        atom_stream::{AtomStreamReader, AtomStreamWriter},
-    },
+use crate::features::output::ndjson::NDJson;
+use crate::features::pcp::atom::AtomChild;
+use crate::features::pcp::{
+    atom::Atom,
+    atom_identifier::{HOST, IP, PORT},
+    atom_stream::{AtomStreamReader, AtomStreamWriter},
 };
 
 use super::sub_servers::SubServers;
@@ -29,15 +27,15 @@ pub fn big_vec<T: Default>(len: usize) -> Vec<T> {
     buf
 }
 
-pub async fn pipe(
-    mut from: OwnedReadHalf,
-    mut to: OwnedWriteHalf,
-    color: ConsoleColor,
+pub async fn pipe_raw(
+    mut incoming: OwnedReadHalf,
+    mut outgoing: OwnedWriteHalf,
+    output: NDJson,
 ) -> Result<()> {
     let mut buf = big_vec(1024 * 1024);
     let mut http11 = false;
     loop {
-        let n = from.read(&mut buf).await?;
+        let n = incoming.read(&mut buf).await?;
         if n == 0 {
             return Ok(());
         }
@@ -47,21 +45,20 @@ pub async fn pipe(
             if buf_str.starts_with("HTTP/1.1") {
                 http11 = true;
             }
-            trace!("{}{}{}", color.header(), &buf_str, color.footer(),);
+            output.output_raw(&buf_str);
         }
-        to.write_all(&buf[0..n]).await?;
+        outgoing.write_all(&buf[0..n]).await?;
     }
 }
 
 pub async fn pipe_pcp(
-    from: OwnedReadHalf,
-    to: OwnedWriteHalf,
+    incoming: OwnedReadHalf,
+    outgoing: OwnedWriteHalf,
     sub_servers: &Mutex<SubServers>,
-    color: ConsoleColor,
+    output: NDJson,
 ) -> Result<()> {
-    let mut printer = PcpPrinter::new(&color);
-    let mut atom_stream_reader = AtomStreamReader::new(from);
-    let mut atom_stream_writer = AtomStreamWriter::new(to);
+    let mut atom_stream_reader = AtomStreamReader::new(incoming);
+    let mut atom_stream_writer = AtomStreamWriter::new(outgoing);
     let mut host = false;
     let mut ip: Option<Ipv4Addr> = None;
     loop {
@@ -70,7 +67,7 @@ pub async fn pipe_pcp(
         } else {
             return Ok(());
         };
-        printer.print(&atom);
+        output.output(&atom);
         if RELAY_HOOK {
             if host {
                 if ip.is_none() && atom.identifier() == IP {

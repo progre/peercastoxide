@@ -1,7 +1,10 @@
+use std::net::Ipv4Addr;
 use std::{borrow::Cow, io::Write};
-use std::{fmt, net::Ipv4Addr};
 
 use derive_new::new;
+use getset::Getters;
+use serde::ser::SerializeMap;
+use serde::Serialize;
 
 use super::atom_identifier::*;
 
@@ -43,19 +46,35 @@ fn from_flg1_to_string(data: u8) -> String {
     )
 }
 
-#[derive(new)]
+#[derive(Getters)]
 pub struct AtomParent {
+    #[getset(get = "pub")]
     identifier: Cow<'static, [u8; 4]>,
-    count: i32,
+    #[getset(get = "pub")]
+    children: Vec<Atom>,
 }
 
 impl AtomParent {
-    pub fn identifier(&self) -> &[u8; 4] {
-        self.identifier.as_ref()
+    pub fn new(identifier: Cow<'static, [u8; 4]>, children: Vec<Atom>) -> Self {
+        Self {
+            identifier,
+            children,
+        }
     }
+}
 
-    pub fn count(&self) -> i32 {
-        self.count
+impl Serialize for AtomParent {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry(
+            "identifier",
+            &String::from_utf8_lossy(self.identifier().as_ref()),
+        )?;
+        map.serialize_entry("children", self.children())?;
+        map.end()
     }
 }
 
@@ -90,12 +109,57 @@ impl AtomChild {
         u16::from_le_bytes(num)
     }
 
-    pub fn to_cow_str(&self) -> Cow<'_, str> {
-        String::from_utf8_lossy(&self.data)
-    }
-
     pub fn to_ipv4(&self) -> Ipv4Addr {
         Ipv4Addr::new(self.data[3], self.data[2], self.data[1], self.data[0])
+    }
+}
+
+impl Serialize for AtomChild {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(2))?;
+        let id_str = String::from_utf8_lossy(self.identifier.as_ref());
+        map.serialize_entry("identifier", &id_str)?;
+
+        match self.identifier.as_ref() {
+            PORT | UPPT | VEXP | VEXN if self.data().len() == 2 => {
+                map.serialize_entry("payload", &self.to_u16())?;
+            }
+            NEWP | NUML | NUMR | OLDP | QUIT | UPHP | UPPT | UPTM | VER | VERS | VEVP | VRVP
+                if self.data().len() == 4 =>
+            {
+                let mut num = [0u8; 4];
+                (&mut num[0..4]).write_all(self.data()).unwrap();
+                map.serialize_entry("payload", &u32::from_le_bytes(num))?;
+            }
+            IP | RIP | UPIP if self.data().len() == 4 => {
+                map.serialize_entry("payload", &self.to_ipv4().to_string())?;
+            }
+            CID | FROM | ID | SID if self.data().len() == 16 => {
+                let value = self
+                    .data()
+                    .iter()
+                    .map(|&x| format!("{:x}", x))
+                    .collect::<Vec<_>>()
+                    .join("");
+                map.serialize_entry("payload", &value)?;
+            }
+            AGNT | ALBM | CMNT | CREA | DESC | GNRE | NAME | STYP | SEXT | TITL | TYPE | URL => {
+                map.serialize_entry("payload", &String::from_utf8_lossy(self.data()))?;
+            }
+            DATA => {
+                map.serialize_entry("payload", &format!("({} bytes)", self.data().len()))?;
+            }
+            FLG1 if self.data().len() == 1 => {
+                map.serialize_entry("payload", &from_flg1_to_string(self.data()[0]))?;
+            }
+            _ => {
+                map.serialize_entry("payload", self.data())?;
+            }
+        };
+        map.end()
     }
 }
 
@@ -113,44 +177,14 @@ impl Atom {
     }
 }
 
-impl fmt::Display for Atom {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self {
-            Atom::Parent(parent) => write!(
-                f,
-                "{}:    # children: {}",
-                to_string(parent.identifier.as_ref()),
-                parent.count
-            ),
-            Atom::Child(child) => {
-                let id_str = to_string(child.identifier.as_ref());
-                let content_str = match child.identifier.as_ref() {
-                    PORT | UPPT | VEXP | VEXN if child.data().len() == 2 => {
-                        child.to_u16().to_string()
-                    }
-                    NEWP | NUML | NUMR | OLDP | QUIT | UPHP | UPPT | UPTM | VER | VERS | VEVP
-                    | VRVP
-                        if child.data().len() == 4 =>
-                    {
-                        let mut num = [0u8; 4];
-                        (&mut num[0..4]).write_all(child.data()).unwrap();
-                        u32::from_le_bytes(num).to_string()
-                    }
-                    IP | RIP | UPIP if child.data().len() == 4 => child.to_ipv4().to_string(),
-                    CID | FROM | ID | SID if child.data().len() == 16 => child
-                        .data()
-                        .iter()
-                        .map(|&x| format!("{:x}", x))
-                        .collect::<Vec<_>>()
-                        .join(""),
-                    AGNT | ALBM | CMNT | CREA | DESC | GNRE | NAME | STYP | SEXT | TITL | TYPE
-                    | URL => child.to_cow_str().into(),
-                    DATA => format!("({} bytes)", child.data().len()),
-                    FLG1 if child.data().len() == 1 => from_flg1_to_string(child.data()[0]),
-                    _ => format!("{:?}", child.data()),
-                };
-                write!(f, "{}: {}", id_str, content_str)
-            }
+impl Serialize for Atom {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Atom::Parent(parent) => parent.serialize(serializer),
+            Atom::Child(child) => child.serialize(serializer),
         }
     }
 }

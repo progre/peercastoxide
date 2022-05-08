@@ -1,2 +1,2 @@
-pub mod console;
+pub mod output;
 pub mod pcp;

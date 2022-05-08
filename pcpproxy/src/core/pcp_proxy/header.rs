@@ -1,5 +1,4 @@
 use anyhow::Result;
-use log::*;
 use regex::Regex;
 use tokio::net::tcp::ReadHalf;
 
@@ -58,7 +57,7 @@ pub async fn check_header(from: &mut ReadHalf<'_>) -> Result<Header> {
     if n > 4 && &buf[0..4] == b"POST" {
         return Ok(Header::Http);
     }
-    trace!(
+    log::trace!(
         "Unknown: {:?}, {}",
         &buf[0..4],
         buf[0..4]

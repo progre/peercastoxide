@@ -2,7 +2,6 @@ use std::{collections::HashMap, net::Ipv4Addr};
 
 use anyhow::Result;
 use derive_new::new;
-use log::*;
 use tokio::{io::AsyncReadExt, net::TcpListener, spawn};
 
 #[derive(new)]
@@ -19,7 +18,7 @@ async fn accept(server: TcpListener) -> Result<()> {
 
         let mut buf = [0u8; 4];
         server_read.read_exact(&mut buf).await?;
-        trace!(
+        log::trace!(
             "sub: {}",
             buf.iter()
                 .map(|&x| (x as char).to_string())
@@ -41,7 +40,7 @@ impl SubServers {
         spawn(async move {
             accept(server).await.unwrap();
         });
-        trace!("sub server started {} {}", self.local_addr, port);
+        log::trace!("sub server started {} {}", self.local_addr, port);
         Ok((self.local_addr, port))
     }
 }
