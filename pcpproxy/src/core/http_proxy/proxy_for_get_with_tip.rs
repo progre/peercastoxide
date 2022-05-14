@@ -9,6 +9,9 @@ use tokio::spawn;
 
 use crate::core::pcp_proxy::pipe::big_vec;
 use crate::core::pcp_proxy::pipe::pipe_raw;
+use crate::core::utils::disconnect_conn_of_download;
+use crate::core::utils::disconnect_conn_of_upload;
+use crate::core::utils::PipeError;
 use crate::features::output::ndjson::NDJson;
 
 struct DropImpl<F>
@@ -31,11 +34,14 @@ async fn pipe_for_get_with_tip(
     mut outgoing: OwnedWriteHalf,
     tip_host: &str,
     host_from_real_server: &str,
-    output: NDJson,
-) -> Result<()> {
+    output: &NDJson,
+) -> Result<(), PipeError> {
     let mut buf = big_vec(1024 * 1024);
     loop {
-        let n = incoming.read(&mut buf).await?;
+        let n = incoming
+            .read(&mut buf)
+            .await
+            .map_err(|err| PipeError::DisconnectedByIncoming(anyhow::Error::new(err)))?;
         if n == 0 {
             return Ok(());
         }
@@ -44,11 +50,20 @@ async fn pipe_for_get_with_tip(
         if let Some(idx) = buf[0..n].iter().position(|&x| x == b'\n') {
             let line = String::from_utf8(buf[0..idx].to_vec()).unwrap();
             let replaced_line = line.replace(tip_host, host_from_real_server);
-            outgoing.write_all(replaced_line.as_bytes()).await?;
-            outgoing.write_all(&buf[idx..n]).await?;
+            outgoing
+                .write_all(replaced_line.as_bytes())
+                .await
+                .map_err(|err| PipeError::DisconnectedByOutgoing(anyhow::Error::new(err)))?;
+            outgoing
+                .write_all(&buf[idx..n])
+                .await
+                .map_err(|err| PipeError::DisconnectedByOutgoing(anyhow::Error::new(err)))?;
             continue;
         }
-        outgoing.write_all(&buf[0..n]).await?;
+        outgoing
+            .write_all(&buf[0..n])
+            .await
+            .map_err(|err| PipeError::DisconnectedByOutgoing(anyhow::Error::new(err)))?;
     }
 }
 
@@ -67,25 +82,24 @@ async fn proxy_for_get_with_tip_internal(
         let client_addr = client_addr.clone();
         let server_host_string = server_host.to_owned();
         spawn(async move {
-            pipe_for_get_with_tip(
+            let output = NDJson::upload(client_addr, server_host_string);
+            let result = pipe_for_get_with_tip(
                 client_incoming,
                 server_outgoing,
                 &tip_host,
                 &host_from_real_server,
-                NDJson::upload(client_addr, server_host_string),
+                &output,
             )
-            .await
+            .await;
+            disconnect_conn_of_upload(result, output)
         })
     };
     let download_handle = {
         let server_host_string = server_host.to_owned();
         spawn(async move {
-            pipe_raw(
-                server_incoming,
-                client_outgoing,
-                NDJson::download(client_addr, server_host_string),
-            )
-            .await
+            let output = NDJson::download(client_addr, server_host_string);
+            let result = pipe_raw(server_incoming, client_outgoing, &output).await;
+            disconnect_conn_of_download(result, output)
         })
     };
     let (upload_result, download_result) = join!(upload_handle, download_handle);

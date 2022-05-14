@@ -1,7 +1,7 @@
+use std::io;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use anyhow::Result;
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::OwnedReadHalf;
@@ -10,6 +10,9 @@ use tokio::net::TcpStream;
 use tokio::spawn;
 use tokio::{io::AsyncReadExt, sync::Mutex};
 
+use crate::core::utils::disconnect_conn_of_download;
+use crate::core::utils::disconnect_conn_of_upload;
+use crate::core::utils::PipeError;
 use crate::features::output::ndjson::NDJson;
 
 use super::pipe::big_vec;
@@ -23,12 +26,18 @@ pub struct HostNotFoundError {}
 async fn pipe_http_header(
     incoming: &mut OwnedReadHalf,
     outgoing: &mut OwnedWriteHalf,
-    output: NDJson,
-) -> Result<()> {
+    output: &NDJson,
+) -> Result<(), PipeError> {
     let mut buf = big_vec(1024 * 1024);
     loop {
-        let n = incoming.read(&mut buf).await?;
-        outgoing.write_all(&buf[0..n]).await?;
+        let n = incoming
+            .read(&mut buf)
+            .await
+            .map_err(|err| PipeError::DisconnectedByIncoming(anyhow::Error::new(err)))?;
+        outgoing
+            .write_all(&buf[0..n])
+            .await
+            .map_err(|err| PipeError::DisconnectedByOutgoing(anyhow::Error::new(err)))?;
         let text = String::from_utf8_lossy(&buf[0..n]);
         if text.replace('\r', "").ends_with("\n\n") {
             return Ok(());
@@ -41,7 +50,7 @@ pub async fn proxy_for_get_channel(
     client: TcpStream,
     channel_id: String,
     channel_id_host_pair: &std::sync::Mutex<Vec<(String, String)>>,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     let local_addr = if let IpAddr::V4(local_addr) = client.local_addr().unwrap().ip() {
         local_addr
     } else {
@@ -68,37 +77,25 @@ pub async fn proxy_for_get_channel(
         let client_host = client_addr.to_string();
         let server_host = server_host.clone();
         spawn(async move {
-            pipe_http_header(
-                &mut client_incoming,
-                &mut server_outgoing,
-                NDJson::upload(client_host.clone(), server_host.clone()),
-            )
-            .await?;
-            pipe_pcp(
-                client_incoming,
-                server_outgoing,
-                sub_servers.as_ref(),
-                NDJson::upload(client_host, server_host),
-            )
-            .await
+            let output = NDJson::upload(client_host, server_host);
+            let result = async {
+                pipe_http_header(&mut client_incoming, &mut server_outgoing, &output).await?;
+                pipe_pcp(client_incoming, server_outgoing, &sub_servers, &output).await
+            }
+            .await;
+            disconnect_conn_of_upload(result, output)
         });
     }
     {
         let client_host = client_addr.to_string();
         spawn(async move {
-            pipe_http_header(
-                &mut server_incoming,
-                &mut client_outgoing,
-                NDJson::download(client_host.clone(), server_host.clone()),
-            )
-            .await?;
-            pipe_pcp(
-                server_incoming,
-                client_outgoing,
-                sub_servers.as_ref(),
-                NDJson::download(client_host, server_host),
-            )
-            .await
+            let output = NDJson::download(client_host.clone(), server_host.clone());
+            let result = async {
+                pipe_http_header(&mut server_incoming, &mut client_outgoing, &output).await?;
+                pipe_pcp(server_incoming, client_outgoing, &sub_servers, &output).await
+            }
+            .await;
+            disconnect_conn_of_download(result, output)
         });
     }
     Ok(())

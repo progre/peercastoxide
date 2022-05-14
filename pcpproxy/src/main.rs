@@ -15,13 +15,13 @@ async fn main() -> Result<()> {
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(
-            Arg::new("ip_address_from_peer_cast")
-                .help("Ip address from PeerCast (host:port)")
+            Arg::new("host_from_real_server")
+                .help("Host from real PeerCast (hostname:port)")
                 .required(true),
         )
         .arg(
-            Arg::new("peer_cast_host")
-                .help("PeerCast host (host:port)")
+            Arg::new("real_server_host")
+                .help("Real PeerCast host (hostname:port)")
                 .required(true),
         )
         .get_matches();
@@ -29,8 +29,8 @@ async fn main() -> Result<()> {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap_or_default();
 
     listen(
-        matches.value_of("ip_address_from_peer_cast").unwrap(),
-        matches.value_of("peer_cast_host").unwrap(),
+        matches.value_of("host_from_real_server").unwrap(),
+        matches.value_of("real_server_host").unwrap(),
     )
     .await
 }

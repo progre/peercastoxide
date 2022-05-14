@@ -5,6 +5,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::{net::tcp::OwnedReadHalf, sync::Mutex};
 
+use crate::core::utils::PipeError;
 use crate::features::output::ndjson::NDJson;
 use crate::features::pcp::atom::AtomChild;
 use crate::features::pcp::{
@@ -30,12 +31,15 @@ pub fn big_vec<T: Default>(len: usize) -> Vec<T> {
 pub async fn pipe_raw(
     mut incoming: OwnedReadHalf,
     mut outgoing: OwnedWriteHalf,
-    output: NDJson,
-) -> Result<()> {
+    output: &NDJson,
+) -> Result<(), PipeError> {
     let mut buf = big_vec(1024 * 1024);
     let mut http11 = false;
     loop {
-        let n = incoming.read(&mut buf).await?;
+        let n = incoming
+            .read(&mut buf)
+            .await
+            .map_err(|err| PipeError::DisconnectedByIncoming(anyhow::Error::new(err)))?;
         if n == 0 {
             return Ok(());
         }
@@ -47,7 +51,10 @@ pub async fn pipe_raw(
             }
             output.output_raw(&buf_str);
         }
-        outgoing.write_all(&buf[0..n]).await?;
+        outgoing
+            .write_all(&buf[0..n])
+            .await
+            .map_err(|err| PipeError::DisconnectedByIncoming(anyhow::Error::new(err)))?;
     }
 }
 
@@ -55,14 +62,18 @@ pub async fn pipe_pcp(
     incoming: OwnedReadHalf,
     outgoing: OwnedWriteHalf,
     sub_servers: &Mutex<SubServers>,
-    output: NDJson,
-) -> Result<()> {
+    output: &NDJson,
+) -> Result<(), PipeError> {
     let mut atom_stream_reader = AtomStreamReader::new(incoming);
     let mut atom_stream_writer = AtomStreamWriter::new(outgoing);
     let mut host = false;
     let mut ip: Option<Ipv4Addr> = None;
     loop {
-        let atom = if let Some(some) = atom_stream_reader.read().await? {
+        let atom = if let Some(some) = atom_stream_reader
+            .read()
+            .await
+            .map_err(PipeError::DisconnectedByIncoming)?
+        {
             some
         } else {
             return Ok(());
@@ -85,14 +96,15 @@ pub async fn pipe_pcp(
                             .lock()
                             .await
                             .start_server(ip.unwrap(), port)
-                            .await?;
+                            .await
+                            .unwrap();
                         ip = None;
                         host = false;
 
                         let atom = Atom::Child(AtomChild::ipv4(Cow::Borrowed(IP), hook_ip));
-                        atom_stream_writer.write(&atom).await?;
+                        atom_stream_writer.write(&atom).await.unwrap();
                         let atom = Atom::Child(AtomChild::u16(Cow::Borrowed(PORT), hook_port));
-                        atom_stream_writer.write(&atom).await?;
+                        atom_stream_writer.write(&atom).await.unwrap();
                         continue;
                     }
                 }
@@ -100,6 +112,9 @@ pub async fn pipe_pcp(
                 host = true;
             }
         }
-        atom_stream_writer.write(&atom).await?;
+        atom_stream_writer
+            .write(&atom)
+            .await
+            .map_err(PipeError::DisconnectedByOutgoing)?;
     }
 }

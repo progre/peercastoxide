@@ -33,6 +33,16 @@ impl NDJson {
         self.output_internal("atom", json!(atom));
     }
 
+    pub fn disconnected_by_client(self) {
+        let none: Option<()> = Option::None;
+        self.output_internal("disconnected_by_client", json!(none));
+    }
+
+    pub fn disconnected_by_server(self) {
+        let none: Option<()> = Option::None;
+        self.output_internal("disconnected_by_server", json!(none));
+    }
+
     fn output_internal(&self, type_param: &str, payload: Value) {
         let direction = if self.upload { "upload" } else { "download" };
         println!(
