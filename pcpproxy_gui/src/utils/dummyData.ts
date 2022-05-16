@@ -25,7 +25,7 @@ const dummyData: JsonPayload[] = [
             },
           ],
         },
-        { identifier: 'id', payload: 'https://' },
+        { identifier: 'id\0\0', payload: 'https://' },
       ],
     },
   },
@@ -37,8 +37,8 @@ const dummyData: JsonPayload[] = [
     payload: {
       identifier: 'helo',
       children: [
-        { identifier: 'id', payload: '124' },
-        { identifier: 'id', payload: '23' },
+        { identifier: 'id\0\0', payload: '124' },
+        { identifier: 'id\0\0', payload: '23' },
       ],
     },
   },
@@ -51,8 +51,8 @@ const dummyData: JsonPayload[] = [
     payload: {
       identifier: 'helo',
       children: [
-        { identifier: 'id', payload: '1234' },
-        { identifier: 'id', payload: '2' },
+        { identifier: 'id\0\0', payload: '1234' },
+        { identifier: 'id\0\0', payload: '2' },
       ],
     },
   },
@@ -64,8 +64,8 @@ const dummyData: JsonPayload[] = [
     payload: {
       identifier: 'helo',
       children: [
-        { identifier: 'id', payload: '124' },
-        { identifier: 'id', payload: '23' },
+        { identifier: 'id\0\0', payload: '124' },
+        { identifier: 'id\0\0', payload: '23' },
       ],
     },
   },
