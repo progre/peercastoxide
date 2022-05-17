@@ -25,7 +25,7 @@ const dummyData: JsonPayload[] = [
             },
           ],
         },
-        { identifier: 'id\0\0', payload: 'https://' },
+        { identifier: 'id\0\0', payload: 'https://\nGET\nPROPS' },
       ],
     },
   },

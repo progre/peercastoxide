@@ -1,6 +1,6 @@
 import { css } from '@emotion/react';
 import { DefaultButton, Dropdown, Icon } from '@fluentui/react';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   VariableSizeNodeComponentProps,
   VariableSizeNodeData,
@@ -32,28 +32,42 @@ function Identifier(props: { identifier: string }): JSX.Element {
   );
 }
 
-function Field({
-  data,
-  isOpen,
-  style,
-  toggle,
-}: VariableSizeNodeComponentProps<
-  Atom & NodeData & VariableSizeNodeData & { nestingLevel: number }
->): JSX.Element {
+function Field(
+  props: VariableSizeNodeComponentProps<
+    Atom & NodeData & VariableSizeNodeData & { nestingLevel: number }
+  >
+): JSX.Element {
+  useEffect(() => {
+    if (!('children' in props.data) && typeof props.data.payload === 'string') {
+      const lines = props.data.payload.split('\n').length;
+      if (lines > 1) {
+        props.resize(lines * 16, true);
+      } else {
+        props.resize(32, true);
+      }
+    }
+  }, [props.resize, props.data, props.height]);
   return (
     <div
       style={{
-        ...style,
+        ...props.style,
         alignItems: 'center',
-        marginLeft: `${data.nestingLevel * 32}px`,
+        paddingLeft: `${props.data.nestingLevel * 32}px`,
         display: 'flex',
       }}
+      css={css`
+        border-bottom: 1px solid #ccc;
+      `}
     >
-      {'children' in data ? (
+      {'children' in props.data ? (
         <DefaultButton
-          onClick={toggle}
+          onClick={() => {
+            props.toggle();
+          }}
           css={css`
             border: none;
+            margin-top: 1px;
+            height: 29px;
 
             > span > * {
               display: flex;
@@ -63,7 +77,7 @@ function Field({
           `}
         >
           <Icon
-            iconName={isOpen ? 'chevrondown' : 'chevronrightmed'}
+            iconName={props.isOpen ? 'chevrondown' : 'chevronrightmed'}
             css={css`
               width: 16px;
             `}
@@ -74,7 +88,7 @@ function Field({
               width: 32px;
             `}
           >
-            <Identifier identifier={data.identifier} />
+            <Identifier identifier={props.data.identifier} />
           </div>
         </DefaultButton>
       ) : (
@@ -91,15 +105,23 @@ function Field({
           `}
         >
           <div>
-            <Identifier identifier={data.identifier} />
+            <Identifier identifier={props.data.identifier} />
           </div>
           <div
             css={css`
               margin-left: 1em;
-              white-space: nowrap;
+              white-space: pre;
+              ${typeof props.data.payload !== 'string' ||
+              props.data.payload.split('\n').length <= 0
+                ? null
+                : 'font-size: 13px; line-height: 16px;'}
             `}
           >
-            {data.payload}
+            {typeof props.data.payload !== 'string'
+              ? props.data.payload?.join?.(', ')
+              : props.data.payload
+                  .replaceAll('\r', '␍')
+                  .replaceAll('\n', '␊\n')}
           </div>
         </div>
       )}

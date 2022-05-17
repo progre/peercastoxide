@@ -1,17 +1,9 @@
 import { css } from '@emotion/react';
-import {
-  Dropdown,
-  GroupedList,
-  SpinButton,
-  Spinner,
-  TextField,
-} from '@fluentui/react';
+import { SpinButton, TextField } from '@fluentui/react';
 import { invoke } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import { useEffect, useState } from 'react';
 import ConnectionsView, { Connections } from './components/ConnectionsView';
-import TreesView from './components/TreesView_';
-import TreesView2 from './components/TreesView';
 import dummyData from './utils/dummyData';
 
 export type AtomOrRaw = Atom | string;
@@ -25,7 +17,7 @@ export interface AtomParent {
 
 export interface AtomChild {
   identifier: string;
-  payload: string;
+  payload?: string | readonly number[];
 }
 
 function updatedConnections(
