@@ -27,14 +27,6 @@ impl SubProcess {
         spawn(async move {
             loop {
                 let line = lines.next_line().await.unwrap().unwrap();
-                println!(
-                    "---{}---({:?})",
-                    line,
-                    line.as_bytes()
-                        .iter()
-                        .filter(|&&x| x < 0x20)
-                        .collect::<Vec<_>>()
-                );
                 let json: Value = serde_json::from_str(&line).unwrap();
                 if let Some(delegate) = delegate.upgrade() {
                     delegate.on_json(&json);

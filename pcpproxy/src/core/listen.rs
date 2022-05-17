@@ -25,13 +25,13 @@ async fn proxy_raw(client: TcpStream, server_host: &str) -> Result<()> {
     spawn(async move {
         let output = NDJson::upload(client_host_clone, server_host_string);
         let result = pipe_raw(client_incoming, server_outgoing, &output).await;
-        disconnect_conn_of_upload(result, output)
+        disconnect_conn_of_upload(result, output).unwrap();
     });
     let server_host_string = server_host.into();
     spawn(async move {
         let output = NDJson::download(client_host, server_host_string);
         let result = pipe_raw(server_incoming, client_outgoing, &output).await;
-        disconnect_conn_of_download(result, output)
+        disconnect_conn_of_download(result, output).unwrap()
     });
     Ok(())
 }
@@ -95,6 +95,7 @@ pub async fn listen(host_from_real_server: &str, real_server_host: &str) -> Resu
                 &real_server_host,
             )
             .await
+            .unwrap();
         });
     }
 }

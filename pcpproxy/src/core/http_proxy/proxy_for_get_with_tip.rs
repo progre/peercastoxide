@@ -91,7 +91,7 @@ async fn proxy_for_get_with_tip_internal(
                 &output,
             )
             .await;
-            disconnect_conn_of_upload(result, output)
+            disconnect_conn_of_upload(result, output).unwrap();
         })
     };
     let download_handle = {
@@ -99,12 +99,12 @@ async fn proxy_for_get_with_tip_internal(
         spawn(async move {
             let output = NDJson::download(client_addr, server_host_string);
             let result = pipe_raw(server_incoming, client_outgoing, &output).await;
-            disconnect_conn_of_download(result, output)
+            disconnect_conn_of_download(result, output).unwrap();
         })
     };
     let (upload_result, download_result) = join!(upload_handle, download_handle);
-    upload_result??;
-    download_result??;
+    upload_result?;
+    download_result?;
     Ok(())
 }
 

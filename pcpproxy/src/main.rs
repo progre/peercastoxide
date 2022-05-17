@@ -10,6 +10,13 @@ use crate::core::listen::listen;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if cfg!(debug_assertions) {
+        env_logger::Builder::from_default_env()
+            .filter_module("pcpproxy", log::LevelFilter::Trace)
+            .target(env_logger::Target::Stderr)
+            .init();
+    }
+
     let matches = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -25,8 +32,6 @@ async fn main() -> Result<()> {
                 .required(true),
         )
         .get_matches();
-
-    log4rs::init_file("log4rs.yml", Default::default()).unwrap_or_default();
 
     listen(
         matches.value_of("host_from_real_server").unwrap(),

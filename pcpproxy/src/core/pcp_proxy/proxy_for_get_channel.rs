@@ -83,7 +83,7 @@ pub async fn proxy_for_get_channel(
                 pipe_pcp(client_incoming, server_outgoing, &sub_servers, &output).await
             }
             .await;
-            disconnect_conn_of_upload(result, output)
+            disconnect_conn_of_upload(result, output).unwrap();
         });
     }
     {
@@ -95,7 +95,7 @@ pub async fn proxy_for_get_channel(
                 pipe_pcp(server_incoming, client_outgoing, &sub_servers, &output).await
             }
             .await;
-            disconnect_conn_of_download(result, output)
+            disconnect_conn_of_download(result, output).unwrap();
         });
     }
     Ok(())
