@@ -32,9 +32,14 @@ function updatedConnections(
       identifier: '#RAW',
       payload: payload.payload as string,
     };
-  } else {
+  } else if (payload.type === 'info') {
     atom = {
       identifier: '#IFO',
+      payload: payload.payload as string,
+    };
+  } else {
+    atom = {
+      identifier: '#UNK',
       payload: payload.type,
     };
   }

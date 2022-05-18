@@ -1,7 +1,6 @@
-use std::{borrow::Cow, cmp::min, net::Ipv4Addr};
+use std::{borrow::Cow, net::Ipv4Addr};
 
 use anyhow::Result;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::{net::tcp::OwnedReadHalf, sync::Mutex};
 
@@ -28,36 +27,6 @@ pub fn big_vec<T: Default>(len: usize) -> Vec<T> {
     buf
 }
 
-pub async fn pipe_raw(
-    mut incoming: OwnedReadHalf,
-    mut outgoing: OwnedWriteHalf,
-    output: &NDJson,
-) -> Result<(), PipeError> {
-    let mut buf = big_vec(1024 * 1024);
-    let mut http11 = false;
-    loop {
-        let n = incoming
-            .read(&mut buf)
-            .await
-            .map_err(|err| PipeError::DisconnectedByIncoming(anyhow::Error::new(err)))?;
-        if n == 0 {
-            return Ok(());
-        }
-        if !http11 {
-            let buf2: &[u8] = &buf[0..n];
-            let buf_str = String::from_utf8_lossy(&buf2[0..(min(buf2.len(), 100))]);
-            if buf_str.starts_with("HTTP/1.1") {
-                http11 = true;
-            }
-            output.output_raw(&buf_str);
-        }
-        outgoing
-            .write_all(&buf[0..n])
-            .await
-            .map_err(|err| PipeError::DisconnectedByIncoming(anyhow::Error::new(err)))?;
-    }
-}
-
 pub async fn pipe_pcp(
     incoming: OwnedReadHalf,
     outgoing: OwnedWriteHalf,
@@ -72,7 +41,7 @@ pub async fn pipe_pcp(
         let atom = if let Some(some) = atom_stream_reader
             .read()
             .await
-            .map_err(PipeError::DisconnectedByIncoming)?
+            .map_err(PipeError::ByIncoming)?
         {
             some
         } else {
@@ -115,6 +84,6 @@ pub async fn pipe_pcp(
         atom_stream_writer
             .write(&atom)
             .await
-            .map_err(PipeError::DisconnectedByOutgoing)?;
+            .map_err(PipeError::ByOutgoing)?;
     }
 }

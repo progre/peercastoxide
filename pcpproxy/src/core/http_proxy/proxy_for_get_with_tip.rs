@@ -8,9 +8,9 @@ use tokio::net::TcpStream;
 use tokio::spawn;
 
 use crate::core::pcp_proxy::pipe::big_vec;
-use crate::core::pcp_proxy::pipe::pipe_raw;
 use crate::core::utils::disconnect_conn_of_download;
 use crate::core::utils::disconnect_conn_of_upload;
+use crate::core::utils::pipe_raw;
 use crate::core::utils::PipeError;
 use crate::features::output::ndjson::NDJson;
 
@@ -41,7 +41,7 @@ async fn pipe_for_get_with_tip(
         let n = incoming
             .read(&mut buf)
             .await
-            .map_err(|err| PipeError::DisconnectedByIncoming(anyhow::Error::new(err)))?;
+            .map_err(|err| PipeError::ByIncoming(anyhow::Error::new(err)))?;
         if n == 0 {
             return Ok(());
         }
@@ -53,17 +53,17 @@ async fn pipe_for_get_with_tip(
             outgoing
                 .write_all(replaced_line.as_bytes())
                 .await
-                .map_err(|err| PipeError::DisconnectedByOutgoing(anyhow::Error::new(err)))?;
+                .map_err(|err| PipeError::ByOutgoing(anyhow::Error::new(err)))?;
             outgoing
                 .write_all(&buf[idx..n])
                 .await
-                .map_err(|err| PipeError::DisconnectedByOutgoing(anyhow::Error::new(err)))?;
+                .map_err(|err| PipeError::ByOutgoing(anyhow::Error::new(err)))?;
             continue;
         }
         outgoing
             .write_all(&buf[0..n])
             .await
-            .map_err(|err| PipeError::DisconnectedByOutgoing(anyhow::Error::new(err)))?;
+            .map_err(|err| PipeError::ByOutgoing(anyhow::Error::new(err)))?;
     }
 }
 

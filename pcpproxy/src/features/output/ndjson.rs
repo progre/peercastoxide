@@ -33,14 +33,26 @@ impl NDJson {
         self.output_internal("atom", json!(atom));
     }
 
-    pub fn disconnected_by_client(self) {
-        let none: Option<()> = Option::None;
-        self.output_internal("disconnected_by_client", json!(none));
+    pub fn info(&self, payload: &str) {
+        self.output_internal("info", json!(payload));
     }
 
-    pub fn disconnected_by_server(self) {
-        let none: Option<()> = Option::None;
-        self.output_internal("disconnected_by_server", json!(none));
+    pub fn disconnected_by_client(self, normally: bool) {
+        let msg = if normally {
+            "disconnected by client"
+        } else {
+            "disconnected by client abnormally"
+        };
+        self.output_internal("info", json!(msg));
+    }
+
+    pub fn disconnected_by_server(self, normally: bool) {
+        let msg = if normally {
+            "disconnected by server"
+        } else {
+            "disconnected by server abnormally"
+        };
+        self.output_internal("info", json!(msg));
     }
 
     fn output_internal(&self, type_param: &str, payload: Value) {

@@ -7,13 +7,14 @@ use tokio::spawn;
 
 use crate::core::pcp_proxy::header::check_header;
 use crate::core::pcp_proxy::header::Header;
-use crate::core::pcp_proxy::pipe::pipe_raw;
 use crate::core::pcp_proxy::proxy_for_get_channel::proxy_for_get_channel;
 use crate::features::output::ndjson::NDJson;
 
 use super::http_proxy::proxy_for_get_with_tip::proxy_for_get_with_tip;
+use super::http_proxy::proxy_http::proxy_http;
 use super::utils::disconnect_conn_of_download;
 use super::utils::disconnect_conn_of_upload;
+use super::utils::pipe_raw;
 
 async fn proxy_raw(client: TcpStream, server_host: &str) -> Result<()> {
     let client_host = format!("{}", client.peer_addr().unwrap());
@@ -65,7 +66,7 @@ async fn on_connect(
             proxy_for_get_channel(client, channel_id, channel_id_host_pair).await?
         }
         Header::Http => {
-            proxy_raw(client, real_server_host).await?;
+            proxy_http(client, real_server_host).await?;
         }
         Header::Pcp => {
             proxy_raw(client, real_server_host).await?;

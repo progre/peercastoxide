@@ -1,4 +1,3 @@
-use std::io;
 use std::net::IpAddr;
 use std::sync::Arc;
 
@@ -33,11 +32,11 @@ async fn pipe_http_header(
         let n = incoming
             .read(&mut buf)
             .await
-            .map_err(|err| PipeError::DisconnectedByIncoming(anyhow::Error::new(err)))?;
+            .map_err(|err| PipeError::ByIncoming(anyhow::Error::new(err)))?;
         outgoing
             .write_all(&buf[0..n])
             .await
-            .map_err(|err| PipeError::DisconnectedByOutgoing(anyhow::Error::new(err)))?;
+            .map_err(|err| PipeError::ByOutgoing(anyhow::Error::new(err)))?;
         let text = String::from_utf8_lossy(&buf[0..n]);
         if text.replace('\r', "").ends_with("\n\n") {
             return Ok(());
