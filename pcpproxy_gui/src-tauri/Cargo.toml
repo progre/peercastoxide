@@ -9,7 +9,7 @@ edition = "2021"
 rust-version = "1.60"
 
 [build-dependencies]
-tauri-build = { version = "1.0.0-rc.8", features = [] }
+tauri-build = { version = "1.0.0-rc.9", features = [] }
 
 [dependencies]
 anyhow = "1"
@@ -17,7 +17,7 @@ async-trait = "0.1"
 erased-serde = "0.3"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.0.0-rc.9", features = ["api-all"] }
+tauri = { version = "1.0.0-rc.11", features = ["api-all"] }
 tauri-runtime = "0.5"
 tokio = { version = "1.17", features = [
   "macros",
