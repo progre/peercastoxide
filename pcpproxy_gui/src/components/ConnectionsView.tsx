@@ -107,7 +107,7 @@ function AtomChildView(props: { data: AtomChild }): JSX.Element {
   );
 }
 
-function Raw(props: { payload: string }) {
+function Raw(props: { identifier: '#RAW' | '#IFO'; payload: string }) {
   return (
     <div
       css={css`
@@ -115,6 +115,8 @@ function Raw(props: { payload: string }) {
         margin-left: 40px;
         display: flex;
         white-space: pre;
+        ${props.identifier !== '#IFO' ? null : 'color: #ff9900;'}
+        ${props.identifier !== '#IFO' ? null : 'font-style: italic;'}
 
         display: flex;
         align-items: center;
@@ -164,8 +166,11 @@ function Field(
           isOpen={props.isOpen}
           toggle={props.toggle}
         />
-      ) : props.data.identifier === '#RAW' ? (
-        <Raw payload={props.data.payload as string} />
+      ) : ['#RAW', '#IFO'].includes(props.data.identifier) ? (
+        <Raw
+          identifier={props.data.identifier as any}
+          payload={props.data.payload as string}
+        />
       ) : (
         <AtomChildView data={props.data} />
       )}
