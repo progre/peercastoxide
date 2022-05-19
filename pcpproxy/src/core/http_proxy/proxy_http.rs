@@ -30,7 +30,7 @@ async fn pipe_request_header(
         let result = incoming
             .read_line(&mut line)
             .await
-            .map_err(|e| PipeError::ByIncoming(anyhow::anyhow!(e)))?;
+            .map_err(|err| PipeError::ByIncoming(anyhow::Error::new(err)))?;
         if result == 0 {
             return Ok(false);
         }
@@ -45,7 +45,7 @@ async fn pipe_request_header(
         outgoing
             .write_all(line.as_bytes())
             .await
-            .map_err(|e| PipeError::ByOutgoing(anyhow::anyhow!(e)))?;
+            .map_err(|err| PipeError::ByOutgoing(anyhow::Error::new(err)))?;
         if line.trim_end().is_empty() {
             break;
         }
@@ -79,14 +79,14 @@ async fn pipe_response_header(
         let result = incoming
             .read_line(&mut line)
             .await
-            .map_err(|e| PipeError::ByIncoming(anyhow::anyhow!(e)))?;
+            .map_err(|err| PipeError::ByIncoming(anyhow::Error::new(err)))?;
         if result == 0 {
             return Ok(false);
         }
         outgoing
             .write_all(line.as_bytes())
             .await
-            .map_err(|e| PipeError::ByOutgoing(anyhow::anyhow!(e)))?;
+            .map_err(|err| PipeError::ByOutgoing(anyhow::Error::new(err)))?;
         all += &line;
         if line.trim_end().is_empty() {
             break;

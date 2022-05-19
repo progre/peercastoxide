@@ -1,4 +1,4 @@
-use std::io;
+use std::io::{self, ErrorKind};
 
 use thiserror::Error;
 use tokio::{
@@ -54,14 +54,8 @@ pub async fn pipe_raw(
     }
 }
 
-pub fn is_broken_pipe_error(err: &anyhow::Error) -> bool {
-    if let Some(err) = err.downcast_ref::<io::Error>() {
-        if err.kind() == io::ErrorKind::ConnectionReset {
-            return true;
-        }
-        // An established connection was aborted by the software in your host machine. (os error 10053)
-    }
-    false
+pub fn io_error_kind(err: &anyhow::Error) -> Option<ErrorKind> {
+    err.downcast_ref::<io::Error>().map(|err| err.kind())
 }
 
 pub fn disconnect_conn_of_upload(
@@ -70,23 +64,23 @@ pub fn disconnect_conn_of_upload(
 ) -> anyhow::Result<()> {
     match &result {
         Err(PipeError::ByIncoming(err)) => {
-            if is_broken_pipe_error(err) {
-                output.disconnected_by_client(false);
+            if let Some(error_kind) = io_error_kind(err) {
+                output.disconnected_by_client(Some(error_kind));
                 return Ok(());
             }
             eprintln!("Unknown error: {}", err);
             result.map_err(anyhow::Error::new)
         }
         Err(PipeError::ByOutgoing(err)) => {
-            if is_broken_pipe_error(err) {
-                output.disconnected_by_server(false);
+            if let Some(error_kind) = io_error_kind(err) {
+                output.disconnected_by_server(Some(error_kind));
                 return Ok(());
             }
             eprintln!("Unknown error: {}", err);
             result.map_err(anyhow::Error::new)
         }
         Ok(_) => {
-            output.disconnected_by_client(true);
+            output.disconnected_by_client(None);
             Ok(())
         }
     }
@@ -98,23 +92,23 @@ pub fn disconnect_conn_of_download(
 ) -> anyhow::Result<()> {
     match &result {
         Err(PipeError::ByIncoming(err)) => {
-            if is_broken_pipe_error(err) {
-                output.disconnected_by_server(false);
+            if let Some(error_kind) = io_error_kind(err) {
+                output.disconnected_by_server(Some(error_kind));
                 return Ok(());
             }
             eprintln!("Unknown error: {}", err);
             result.map_err(anyhow::Error::new)
         }
         Err(PipeError::ByOutgoing(err)) => {
-            if is_broken_pipe_error(err) {
-                output.disconnected_by_client(false);
+            if let Some(error_kind) = io_error_kind(err) {
+                output.disconnected_by_client(Some(error_kind));
                 return Ok(());
             }
             eprintln!("Unknown error: {}", err);
             result.map_err(anyhow::Error::new)
         }
         Ok(_) => {
-            output.disconnected_by_server(true);
+            output.disconnected_by_server(None);
             Ok(())
         }
     }

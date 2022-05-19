@@ -1,3 +1,5 @@
+use std::{borrow::Cow, io::ErrorKind};
+
 use serde_json::{json, Value};
 
 use crate::features::pcp::atom::Atom;
@@ -37,22 +39,22 @@ impl NDJson {
         self.output_internal("info", json!(payload));
     }
 
-    pub fn disconnected_by_client(self, normally: bool) {
-        let msg = if normally {
-            "disconnected by client"
+    pub fn disconnected_by_client(self, error_kind: Option<ErrorKind>) {
+        let msg: Cow<'static, str> = if let Some(error_kind) = error_kind {
+            format!("disconnected by client ({})", error_kind).into()
         } else {
-            "disconnected by client abnormally"
+            "disconnected by client".into()
         };
-        self.output_internal("info", json!(msg));
+        self.output_internal("info", json!(&msg));
     }
 
-    pub fn disconnected_by_server(self, normally: bool) {
-        let msg = if normally {
-            "disconnected by server"
+    pub fn disconnected_by_server(self, error_kind: Option<ErrorKind>) {
+        let msg: Cow<'static, str> = if let Some(error_kind) = error_kind {
+            format!("disconnected by server ({})", error_kind).into()
         } else {
-            "disconnected by server abnormally"
+            "disconnected by server".into()
         };
-        self.output_internal("info", json!(msg));
+        self.output_internal("info", json!(&msg));
     }
 
     fn output_internal(&self, type_param: &str, payload: Value) {
