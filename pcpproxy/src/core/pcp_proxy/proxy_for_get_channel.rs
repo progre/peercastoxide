@@ -63,7 +63,7 @@ pub async fn proxy_for_get_channel(
         .lock()
         .unwrap()
         .iter()
-        .find(|(item_channel_id, _item_host)| item_channel_id == &channel_id.to_uppercase())
+        .find(|(item_channel_id, _item_host)| item_channel_id == &channel_id.to_ascii_uppercase())
         .ok_or(HostNotFoundError {})?
         .1
         .to_owned();

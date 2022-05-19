@@ -2,8 +2,8 @@ use std::io;
 
 use thiserror::Error;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::tcp::{OwnedReadHalf, OwnedWriteHalf},
+    io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
+    net::tcp::OwnedWriteHalf,
 };
 
 use crate::features::output::ndjson::NDJson;
@@ -18,32 +18,39 @@ pub enum PipeError {
     ByOutgoing(anyhow::Error),
 }
 
+async fn pipe_one_read(
+    incoming: &mut (impl AsyncRead + Unpin),
+    outgoing: &mut OwnedWriteHalf,
+    buf: &mut [u8],
+) -> Result<bool, PipeError> {
+    let n = incoming
+        .read(buf)
+        .await
+        .map_err(|err| PipeError::ByIncoming(anyhow::Error::new(err)))?;
+    if n == 0 {
+        return Ok(false);
+    }
+    outgoing
+        .write_all(&buf[0..n])
+        .await
+        .map_err(|err| PipeError::ByOutgoing(anyhow::Error::new(err)))?;
+    Ok(true)
+}
+
 pub async fn pipe_raw(
-    mut incoming: OwnedReadHalf,
+    mut incoming: impl AsyncRead + Unpin,
     mut outgoing: OwnedWriteHalf,
     output: &NDJson,
 ) -> Result<(), PipeError> {
     let mut buf = big_vec(1024 * 1024);
-    let mut one_byte = [0u8; 1];
-    let n = incoming
-        .peek(&mut one_byte)
-        .await
-        .map_err(|err| PipeError::ByIncoming(anyhow::Error::new(err)))?;
-    if n != 0 {
-        output.output_raw("(raw data stream)");
+    if !pipe_one_read(&mut incoming, &mut outgoing, &mut buf).await? {
+        return Ok(());
     }
+    output.output_raw("(raw data stream)");
     loop {
-        let n = incoming
-            .read(&mut buf)
-            .await
-            .map_err(|err| PipeError::ByIncoming(anyhow::Error::new(err)))?;
-        if n == 0 {
+        if !pipe_one_read(&mut incoming, &mut outgoing, &mut buf).await? {
             return Ok(());
         }
-        outgoing
-            .write_all(&buf[0..n])
-            .await
-            .map_err(|err| PipeError::ByOutgoing(anyhow::Error::new(err)))?;
     }
 }
 
@@ -52,6 +59,7 @@ pub fn is_broken_pipe_error(err: &anyhow::Error) -> bool {
         if err.kind() == io::ErrorKind::ConnectionReset {
             return true;
         }
+        // An established connection was aborted by the software in your host machine. (os error 10053)
     }
     false
 }
