@@ -3,6 +3,8 @@
 mod core;
 mod features;
 
+use std::num::NonZeroU16;
+
 use anyhow::Result;
 use clap::{Arg, Command};
 
@@ -16,11 +18,18 @@ async fn main() -> Result<()> {
             .target(env_logger::Target::Stderr)
             .init();
     }
-
     let matches = Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
+        .arg(
+            Arg::new("listen_port")
+                .help("Listen port")
+                .required(true)
+                .validator(|arg| {
+                    NonZeroU16::new(arg.parse()?).ok_or_else(|| anyhow::anyhow!("Zero"))
+                }),
+        )
         .arg(
             Arg::new("host_from_real_server")
                 .help("Host from real PeerCast (hostname:port)")
@@ -34,6 +43,7 @@ async fn main() -> Result<()> {
         .get_matches();
 
     listen(
+        NonZeroU16::new(matches.value_of("listen_port").unwrap().parse().unwrap()).unwrap(),
         matches.value_of("host_from_real_server").unwrap(),
         matches.value_of("real_server_host").unwrap(),
     )

@@ -1,3 +1,4 @@
+use std::num::NonZeroU16;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -69,24 +70,68 @@ async fn on_connect(
     Ok(())
 }
 
-pub async fn listen(host_from_real_server: &str, real_server_host: &str) -> Result<()> {
-    let port: u16 = host_from_real_server.split(':').collect::<Vec<_>>()[1].parse()?;
+pub async fn listen(
+    listen_port: NonZeroU16,
+    host_from_real_server: &str,
+    real_server_host: &str,
+) -> Result<()> {
     let channel_id_host_pair_list = Arc::new(std::sync::Mutex::new(Vec::<(String, String)>::new()));
-    let server = TcpListener::bind(&format!("0.0.0.0:{}", port)).await?;
-    loop {
-        let (incoming_socket, _) = server.accept().await?;
+    let handle1 = {
         let channel_id_host_pair_list = channel_id_host_pair_list.clone();
         let host_from_real_server = host_from_real_server.to_owned();
         let real_server_host = real_server_host.to_owned();
         spawn(async move {
-            on_connect(
-                incoming_socket,
-                channel_id_host_pair_list,
-                &host_from_real_server,
-                &real_server_host,
-            )
-            .await
-            .unwrap();
-        });
-    }
+            let server = TcpListener::bind(&format!("0.0.0.0:{}", listen_port))
+                .await
+                .unwrap();
+            loop {
+                let (incoming_socket, _) = server.accept().await.unwrap();
+                let channel_id_host_pair_list = channel_id_host_pair_list.clone();
+                let host_from_real_server = host_from_real_server.to_owned();
+                let real_server_host = real_server_host.to_owned();
+                spawn(async move {
+                    on_connect(
+                        incoming_socket,
+                        channel_id_host_pair_list,
+                        &host_from_real_server,
+                        &real_server_host,
+                    )
+                    .await
+                    .unwrap();
+                });
+            }
+        })
+    };
+    let handle2 = {
+        let channel_id_host_pair_list = channel_id_host_pair_list.clone();
+        let host_from_real_server = host_from_real_server.to_owned();
+        let real_server_host = real_server_host.to_owned();
+        spawn(async move {
+            let port: u16 = host_from_real_server.split(':').collect::<Vec<_>>()[1]
+                .parse()
+                .unwrap();
+            let server = TcpListener::bind(&format!("0.0.0.0:{}", port))
+                .await
+                .unwrap();
+            loop {
+                let (incoming_socket, _) = server.accept().await.unwrap();
+                let channel_id_host_pair_list = channel_id_host_pair_list.clone();
+                let host_from_real_server = host_from_real_server.to_owned();
+                let real_server_host = real_server_host.to_owned();
+                spawn(async move {
+                    on_connect(
+                        incoming_socket,
+                        channel_id_host_pair_list,
+                        &host_from_real_server,
+                        &real_server_host,
+                    )
+                    .await
+                    .unwrap();
+                });
+            }
+        })
+    };
+    handle1.await?;
+    handle2.await?;
+    Ok(())
 }
