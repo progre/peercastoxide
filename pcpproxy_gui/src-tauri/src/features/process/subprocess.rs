@@ -18,7 +18,7 @@ impl SubProcess {
     pub fn run(delegate: Weak<dyn Send + Sync + SubProcessDelegate>) -> JoinHandle<()> {
         let mut child = Command::new("pcpproxy")
             .arg("7144")
-            .arg("127.0.0.1:7145")
+            .arg("127.0.0.1")
             .arg("127.0.0.1:7264")
             .stdout(Stdio::piped())
             .spawn()

@@ -136,7 +136,6 @@ function Field(
   >
 ): JSX.Element {
   useEffect(() => {
-    console.log(props.data.identifier);
     if ('children' in props.data || typeof props.data.payload !== 'string') {
       props.resize(32, true);
       return;

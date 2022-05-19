@@ -1,4 +1,4 @@
 mod http_proxy;
 pub mod listen;
-mod pcp_proxy;
-mod utils;
+pub mod pcp_proxy;
+pub mod utils;

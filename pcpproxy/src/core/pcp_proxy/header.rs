@@ -1,15 +1,7 @@
 use anyhow::Result;
-use regex::Regex;
 use tokio::net::tcp::ReadHalf;
 
-fn find_channel_id(line: &str) -> Option<String> {
-    let regex = Regex::new(r"/channel/([0-9A-Fa-f]+)").unwrap();
-    let captures = &regex.captures(line)?;
-    Some(captures[1].into())
-}
-
 pub enum Header {
-    GetChannel { channel_id: String },
     Pcp,
     Http,
     Unknown,
@@ -17,34 +9,23 @@ pub enum Header {
 }
 
 pub async fn check_header(from: &mut ReadHalf<'_>) -> Result<Header> {
-    let mut buf = [0u8; 1024];
+    let mut buf = [0u8; 4];
     let n = from.peek(&mut buf).await?;
-    if n == 0 {
-        return Ok(Header::Empty);
-    }
-    if n > 4 && &buf[0..4] == b"pcp\n" {
-        return Ok(Header::Pcp);
-    }
-    if n > 4 && &buf[0..4] == b"GET " {
-        if let Some(idx) = buf[0..n].iter().position(|&x| x == b'\n') {
-            let line = String::from_utf8(buf[0..idx].to_vec()).unwrap();
-            if let Some(channel_id) = find_channel_id(&line) {
-                return Ok(Header::GetChannel { channel_id });
-            }
-            return Ok(Header::Http);
+    Ok(match &buf {
+        b"pcp\n" => Header::Pcp,
+        b"GET " => Header::Http,
+        b"POST" => Header::Http,
+        _ if n == 0 => Header::Empty,
+        _ => {
+            log::trace!(
+                "Unknown: {:?}, {}",
+                &buf,
+                buf.iter()
+                    .map(|&x| (x as char).to_string())
+                    .collect::<Vec<_>>()
+                    .join("")
+            );
+            Header::Unknown
         }
-    }
-    if n > 4 && &buf[0..4] == b"POST" {
-        return Ok(Header::Http);
-    }
-    log::trace!(
-        "Unknown: {:?}, {}",
-        &buf[0..4],
-        buf[0..4]
-            .iter()
-            .map(|&x| (x as char).to_string())
-            .collect::<Vec<_>>()
-            .join("")
-    );
-    Ok(Header::Unknown)
+    })
 }

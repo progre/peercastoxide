@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::Result;
 use regex::Regex;
 use tokio::{
@@ -13,14 +11,13 @@ use tokio::{
 
 use crate::{
     core::utils::{disconnect_conn_of_download, disconnect_conn_of_upload, pipe_raw, PipeError},
-    features::output::ndjson::NDJson,
+    features::{output::ndjson::NDJson, real_server_listener::listen_for::listen_for},
 };
 
 async fn pipe_request_header(
     incoming: &mut BufReader<OwnedReadHalf>,
     outgoing: &mut OwnedWriteHalf,
-    host_from_real_server: &str,
-    channel_id_host_pair_list: &std::sync::Mutex<Vec<(String, String)>>,
+    hostname_from_real_server: &str,
     output: &NDJson,
 ) -> Result<bool, PipeError> {
     let mut all = String::new();
@@ -37,10 +34,13 @@ async fn pipe_request_header(
         all += &line;
         let pattern = r"^GET /(?:pls|stream)/([0-9A-Fa-f]+)\?tip=([^&]+).* HTTP/.+\r?\n$";
         if let Some(capture) = Regex::new(pattern).unwrap().captures(&line) {
-            let channel_id = capture[1].to_owned();
             let tip_host = capture[2].to_owned();
-            line = line.replace(&tip_host, host_from_real_server);
-            channel_id_host_pair = Some((channel_id, tip_host));
+            let port = listen_for(hostname_from_real_server, tip_host.clone()).await;
+            line = line.replace(
+                &tip_host,
+                &format!("{}:{}", hostname_from_real_server, port),
+            );
+            channel_id_host_pair = Some((tip_host, port));
         }
         outgoing
             .write_all(line.as_bytes())
@@ -51,19 +51,11 @@ async fn pipe_request_header(
         }
     }
     output.output_raw(&all);
-    if let Some((channel_id, tip_host)) = channel_id_host_pair {
+    if let Some((tip_host, port)) = channel_id_host_pair {
         output.info(&format!(
-            "Proxy: Replaced {} with {}",
-            tip_host, host_from_real_server
+            "Proxy: Replaced {} with {}:{}",
+            tip_host, hostname_from_real_server, port
         ));
-        output.info(&format!(
-            "Proxy: Save {} in {} of the id-tip table.",
-            tip_host, channel_id
-        ));
-        channel_id_host_pair_list
-            .lock()
-            .unwrap()
-            .push((channel_id, tip_host));
     }
     Ok(true)
 }
@@ -99,8 +91,7 @@ async fn pipe_response_header(
 async fn pipe_http_request(
     incoming: OwnedReadHalf,
     mut outgoing: OwnedWriteHalf,
-    host_from_real_server: &str,
-    channel_id_host_pair_list: &std::sync::Mutex<Vec<(String, String)>>,
+    hostname_from_real_server: &str,
     output: &NDJson,
 ) -> Result<(), PipeError> {
     let mut incoming = BufReader::new(incoming);
@@ -108,8 +99,7 @@ async fn pipe_http_request(
         if !pipe_request_header(
             &mut incoming,
             &mut outgoing,
-            host_from_real_server,
-            channel_id_host_pair_list,
+            hostname_from_real_server,
             output,
         )
         .await?
@@ -134,8 +124,7 @@ async fn pipe_http_response(
 pub async fn proxy_http(
     client: TcpStream,
     server_host: &str,
-    host_from_real_server: String,
-    channel_id_host_pair_list: Arc<std::sync::Mutex<Vec<(String, String)>>>,
+    hostname_from_real_server: String,
 ) -> Result<()> {
     let client_host = format!("{}", client.peer_addr().unwrap());
     let (client_incoming, client_outgoing) = client.into_split();
@@ -148,8 +137,7 @@ pub async fn proxy_http(
         let result = pipe_http_request(
             client_incoming,
             server_outgoing,
-            &host_from_real_server,
-            &channel_id_host_pair_list,
+            &hostname_from_real_server,
             &output,
         )
         .await;

@@ -31,8 +31,8 @@ async fn main() -> Result<()> {
                 }),
         )
         .arg(
-            Arg::new("host_from_real_server")
-                .help("Host from real PeerCast (hostname:port)")
+            Arg::new("hostname_from_real_server")
+                .help("Hostname from real PeerCast (without tcp port)")
                 .required(true),
         )
         .arg(
@@ -44,8 +44,9 @@ async fn main() -> Result<()> {
 
     listen(
         NonZeroU16::new(matches.value_of("listen_port").unwrap().parse().unwrap()).unwrap(),
-        matches.value_of("host_from_real_server").unwrap(),
+        matches.value_of("hostname_from_real_server").unwrap(),
         matches.value_of("real_server_host").unwrap(),
     )
-    .await
+    .await;
+    Ok(())
 }
