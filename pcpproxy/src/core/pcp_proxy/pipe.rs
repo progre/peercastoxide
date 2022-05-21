@@ -1,8 +1,9 @@
 use std::{borrow::Cow, net::Ipv4Addr};
 
 use anyhow::Result;
+use tokio::io::AsyncRead;
 use tokio::net::tcp::OwnedWriteHalf;
-use tokio::{net::tcp::OwnedReadHalf, sync::Mutex};
+use tokio::sync::Mutex;
 
 use crate::core::utils::PipeError;
 use crate::features::output::ndjson::NDJson;
@@ -28,7 +29,7 @@ pub fn big_vec<T: Default>(len: usize) -> Vec<T> {
 }
 
 pub async fn pipe_pcp(
-    incoming: OwnedReadHalf,
+    incoming: impl AsyncRead + Unpin + Send + Sync,
     outgoing: OwnedWriteHalf,
     sub_servers: &Mutex<SubServers>,
     output: &NDJson,

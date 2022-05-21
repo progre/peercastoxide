@@ -1,4 +1,5 @@
 use anyhow::Result;
+use futures::Future;
 use regex::Regex;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -14,14 +15,17 @@ use crate::{
     features::{output::ndjson::NDJson, real_server_listener::listen_for::listen_for},
 };
 
-async fn pipe_request_header(
+pub async fn pipe_request_header<T>(
     incoming: &mut BufReader<OwnedReadHalf>,
     outgoing: &mut OwnedWriteHalf,
-    hostname_from_real_server: &str,
+    on_line: impl Fn(String) -> T,
     output: &NDJson,
-) -> Result<bool, PipeError> {
+) -> Result<bool, PipeError>
+where
+    T: Future<Output = String>,
+{
     let mut all = String::new();
-    let mut channel_id_host_pair = None;
+
     loop {
         let mut line = String::new();
         let result = incoming
@@ -32,16 +36,7 @@ async fn pipe_request_header(
             return Ok(false);
         }
         all += &line;
-        let pattern = r"^GET /(?:pls|stream)/([0-9A-Fa-f]+)\?tip=([^&]+).* HTTP/.+\r?\n$";
-        if let Some(capture) = Regex::new(pattern).unwrap().captures(&line) {
-            let tip_host = capture[2].to_owned();
-            let port = listen_for(hostname_from_real_server, tip_host.clone()).await;
-            line = line.replace(
-                &tip_host,
-                &format!("{}:{}", hostname_from_real_server, port),
-            );
-            channel_id_host_pair = Some((tip_host, port));
-        }
+        line = on_line(line).await;
         outgoing
             .write_all(line.as_bytes())
             .await
@@ -51,16 +46,10 @@ async fn pipe_request_header(
         }
     }
     output.output_raw(&all);
-    if let Some((tip_host, port)) = channel_id_host_pair {
-        output.info(&format!(
-            "Proxy: Replaced {} with {}:{}",
-            tip_host, hostname_from_real_server, port
-        ));
-    }
     Ok(true)
 }
 
-async fn pipe_response_header(
+pub async fn pipe_response_header(
     incoming: &mut BufReader<OwnedReadHalf>,
     outgoing: &mut OwnedWriteHalf,
     output: &NDJson,
@@ -96,14 +85,28 @@ async fn pipe_http_request(
 ) -> Result<(), PipeError> {
     let mut incoming = BufReader::new(incoming);
     loop {
-        if !pipe_request_header(
+        let replacement_pair = std::sync::Mutex::new(None);
+        let remain = pipe_request_header(
             &mut incoming,
             &mut outgoing,
-            hostname_from_real_server,
+            |mut line| async {
+                let pattern = r"^GET /(?:pls|stream)/(?:[0-9A-Fa-f]+)\?tip=([^&]+).* HTTP/.+\r?\n$";
+                if let Some(capture) = Regex::new(pattern).unwrap().captures(&line) {
+                    let tip_host = capture[1].to_owned();
+                    let port = listen_for(hostname_from_real_server, tip_host.clone()).await;
+                    let replace_with = format!("{}:{}", hostname_from_real_server, port);
+                    line = line.replace(&tip_host, &replace_with);
+                    *replacement_pair.lock().unwrap() = Some((tip_host, replace_with));
+                }
+                line
+            },
             output,
         )
-        .await?
-        {
+        .await?;
+        if let Some((from, to)) = replacement_pair.lock().unwrap().as_ref() {
+            output.info(&format!("Proxy: Replaced {} with {}", from, to));
+        }
+        if !remain {
             return Ok(());
         }
     }
