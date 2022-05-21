@@ -27,6 +27,7 @@ pub const NAME: &[u8; 4] = b"name";
 pub const NEWP: &[u8; 4] = b"newp";
 pub const NUML: &[u8; 4] = b"numl";
 pub const NUMR: &[u8; 4] = b"numr";
+pub const OK: &[u8; 4] = b"ok\0\0";
 pub const OLDP: &[u8; 4] = b"oldp";
 pub const OLEH: &[u8; 4] = b"oleh";
 pub const PCP: &[u8; 4] = b"pcp\n";

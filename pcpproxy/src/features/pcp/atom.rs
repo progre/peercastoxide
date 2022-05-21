@@ -8,14 +8,6 @@ use serde::Serialize;
 
 use super::atom_identifier::*;
 
-fn to_string(identifier: &[u8; 4]) -> String {
-    identifier
-        .iter()
-        .map(|&x| (x as char).to_string())
-        .collect::<Vec<_>>()
-        .join("")
-}
-
 fn from_flg1_to_string(data: u8) -> String {
     let tracker = data & 1 << 0 != 0;
     let relay = data & 1 << 1 != 0;
@@ -127,7 +119,8 @@ impl Serialize for AtomChild {
             PORT | UPPT | VEXP | VEXN if self.data().len() == 2 => {
                 map.serialize_entry("payload", &self.to_u16())?;
             }
-            NEWP | NUML | NUMR | OLDP | QUIT | UPHP | UPPT | UPTM | VER | VERS | VEVP | VRVP
+            BITR | NEWP | NUML | NUMR | OK | OLDP | POS | QUIT | UPHP | UPPT | UPTM | VER
+            | VERS | VEVP | VRVP
                 if self.data().len() == 4 =>
             {
                 let mut num = [0u8; 4];

@@ -93,15 +93,18 @@ function AtomChildView(props: { data: AtomChild }): JSX.Element {
         css={css`
           margin-left: 1em;
           white-space: pre;
-          ${typeof props.data.payload !== 'string' ||
-          props.data.payload.split('\n').length <= 0
-            ? null
-            : 'font-size: 13px; line-height: 16px;'}
+          font-size: 13px;
+          line-height: 16px;
         `}
       >
-        {typeof props.data.payload !== 'string'
+        {typeof props.data.payload === 'string'
+          ? props.data.payload.replaceAll('\r', '␍').replaceAll('\n', '␊\n')
+          : ['newp', 'pos\0', 'oldp'].includes(props.data.identifier) &&
+            typeof props.data.payload === 'number'
+          ? new Intl.NumberFormat().format(props.data.payload)
+          : typeof props.data.payload === 'object'
           ? props.data.payload?.join?.(', ')
-          : props.data.payload.replaceAll('\r', '␍').replaceAll('\n', '␊\n')}
+          : props.data.payload}
       </div>
     </div>
   );
