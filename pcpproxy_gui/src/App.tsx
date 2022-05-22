@@ -1,9 +1,9 @@
 import { css } from '@emotion/react';
-import { SpinButton, TextField } from '@fluentui/react';
 import { invoke } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import { useEffect, useState } from 'react';
 import ConnectionsView, { Connections } from './components/ConnectionsView';
+import Settings from './components/Settings';
 import dummyData from './utils/dummyData';
 
 export type AtomOrRaw = Atom | string;
@@ -114,33 +114,16 @@ export default function App(): JSX.Element {
         flex-direction: column;
       `}
     >
-      <div>
-        <SpinButton
-          label="使用する TCP ポート"
-          style={{ width: 0 }}
-          styles={{ input: { textAlign: 'end', textOverflow: 'clip' } }}
-          max={65535}
-          min={1}
-          // value={String(props.settings.peerCastPort)}
-          // onChange={(_ev, newValue) =>
-          //   props.onChange({
-          //     ...props.settings,
-          //     peerCastPort: Number(newValue),
-          //   })
-          // }
-          value={''}
-        />
-        <TextField
-          label="PeerCast から見たこのマシンのアドレス"
-          placeholder="localhost"
-        />
-        <TextField
-          label="PeerCast のアドレスと TCP ポート番号"
-          placeholder="localhost:7144"
-        />
+      <div
+        css={css`
+          margin: 8px;
+        `}
+      >
+        <Settings />
       </div>
       <div
         css={css`
+          margin-top: 16px;
           flex-grow: 1;
           overflow: hidden;
         `}

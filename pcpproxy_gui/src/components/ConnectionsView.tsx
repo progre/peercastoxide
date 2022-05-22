@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { DefaultButton, Dropdown, Icon } from '@fluentui/react';
+import { DefaultButton, Dropdown, Icon, ResponsiveMode } from '@fluentui/react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   VariableSizeNodeComponentProps,
@@ -193,7 +193,11 @@ function AtomStreamView(props: {
         flex-direction: column;
       `}
     >
-      <div>
+      <div
+        css={css`
+          margin: 0 8px;
+        `}
+      >
         {props.label} ({props.atomStream.length})
       </div>
       <div
@@ -261,10 +265,14 @@ export default function ConnectionsView(props: {
       `}
     >
       <Dropdown
+        css={css`
+          margin: 8px;
+        `}
         options={Object.entries(props.connections).map(([key, value]) => ({
           key,
           text: `${value.clientHost} -> ${value.serverHost}`,
         }))}
+        responsiveMode={ResponsiveMode.large}
         onChange={(_ev, option) => {
           if (option == null) {
             return;
