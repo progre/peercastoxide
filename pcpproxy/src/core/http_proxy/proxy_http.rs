@@ -1,3 +1,5 @@
+use std::net::Ipv4Addr;
+
 use anyhow::Result;
 use futures::Future;
 use regex::Regex;
@@ -80,7 +82,7 @@ pub async fn pipe_response_header(
 async fn pipe_http_request(
     incoming: OwnedReadHalf,
     mut outgoing: OwnedWriteHalf,
-    hostname_from_real_server: &str,
+    ipv4_addr_from_real_server: Ipv4Addr,
     output: &NDJson,
 ) -> Result<(), PipeError> {
     let mut incoming = BufReader::new(incoming);
@@ -93,8 +95,8 @@ async fn pipe_http_request(
                 let pattern = r"^GET /(?:pls|stream)/(?:[0-9A-Fa-f]+)\?tip=([^&]+).* HTTP/.+\r?\n$";
                 if let Some(capture) = Regex::new(pattern).unwrap().captures(&line) {
                     let tip_host = capture[1].to_owned();
-                    let port = listen_for(hostname_from_real_server, tip_host.clone()).await;
-                    let replace_with = format!("{}:{}", hostname_from_real_server, port);
+                    let port = listen_for(ipv4_addr_from_real_server, tip_host.clone()).await;
+                    let replace_with = format!("{}:{}", ipv4_addr_from_real_server, port);
                     line = line.replace(&tip_host, &replace_with);
                     *replacement_pair.lock().unwrap() = Some((tip_host, replace_with));
                 }
@@ -127,7 +129,7 @@ async fn pipe_http_response(
 pub async fn proxy_http(
     client: TcpStream,
     server_host: &str,
-    hostname_from_real_server: String,
+    ipv4_addr_from_real_server: Ipv4Addr,
 ) -> Result<()> {
     let client_host = format!("{}", client.peer_addr().unwrap());
     let (client_incoming, client_outgoing) = client.into_split();
@@ -140,7 +142,7 @@ pub async fn proxy_http(
         let result = pipe_http_request(
             client_incoming,
             server_outgoing,
-            &hostname_from_real_server,
+            ipv4_addr_from_real_server,
             &output,
         )
         .await;

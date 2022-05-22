@@ -1,36 +1,30 @@
-use std::net::IpAddr;
-use std::sync::Arc;
+use std::net::Ipv4Addr;
 use std::{num::NonZeroU16, time::Duration};
 
 use regex::Regex;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
-use tokio::sync::Mutex;
 use tokio::{net::TcpListener, spawn, time::timeout};
 
 use crate::core::http_proxy::proxy_http::pipe_request_header;
 use crate::core::http_proxy::proxy_http::pipe_response_header;
 use crate::core::pcp_proxy::pipe::pipe_pcp;
-use crate::core::pcp_proxy::sub_servers::SubServers;
 use crate::core::utils::disconnect_conn_of_download;
 use crate::core::utils::disconnect_conn_of_upload;
 use crate::features::output::ndjson::NDJson;
 
-async fn on_connect(client: TcpStream, tip_host: String) -> anyhow::Result<()> {
-    let local_addr = if let IpAddr::V4(local_addr) = client.local_addr().unwrap().ip() {
-        local_addr
-    } else {
-        unreachable!();
-    };
+async fn on_connect(
+    client: TcpStream,
+    ipv4_addr_from_real_server: Ipv4Addr,
+    tip_host: String,
+) -> anyhow::Result<()> {
     let client_addr = client.peer_addr().unwrap();
 
     let (client_incoming, mut client_outgoing) = client.into_split();
     let server = TcpStream::connect(&tip_host).await?;
     let (server_incoming, mut server_outgoing) = server.into_split();
 
-    let sub_servers = Arc::new(Mutex::new(SubServers::new(local_addr)));
     {
-        let sub_servers = sub_servers.clone();
         let client_host = client_addr.to_string();
         let tip_host = tip_host.clone();
         spawn(async move {
@@ -59,7 +53,13 @@ async fn on_connect(client: TcpStream, tip_host: String) -> anyhow::Result<()> {
                 if let Some((from, to)) = replacement_pair.lock().unwrap().as_ref() {
                     output.info(&format!("Proxy: Replaced {} with {}", from, to));
                 }
-                pipe_pcp(client_incoming, server_outgoing, &sub_servers, &output).await
+                pipe_pcp(
+                    client_incoming,
+                    server_outgoing,
+                    ipv4_addr_from_real_server,
+                    &output,
+                )
+                .await
             }
             .await;
             disconnect_conn_of_upload(result, output).unwrap();
@@ -72,7 +72,13 @@ async fn on_connect(client: TcpStream, tip_host: String) -> anyhow::Result<()> {
             let result = async {
                 let mut server_incoming = BufReader::new(server_incoming);
                 pipe_response_header(&mut server_incoming, &mut client_outgoing, &output).await?;
-                pipe_pcp(server_incoming, client_outgoing, &sub_servers, &output).await
+                pipe_pcp(
+                    server_incoming,
+                    client_outgoing,
+                    ipv4_addr_from_real_server,
+                    &output,
+                )
+                .await
             }
             .await;
             disconnect_conn_of_download(result, output).unwrap();
@@ -81,17 +87,23 @@ async fn on_connect(client: TcpStream, tip_host: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn listen_for(hostname_from_real_server: &str, tip_host: String) -> NonZeroU16 {
-    let server = TcpListener::bind(&format!("{}:0", hostname_from_real_server))
-        .await
-        .unwrap();
-    let port = server.local_addr().unwrap().port().try_into().unwrap();
+fn spawn_listener(server: TcpListener, ipv4_addr_from_real_server: Ipv4Addr, tip_host: String) {
     spawn(async move {
         let (client, _) = timeout(Duration::from_secs(10), server.accept())
             .await
             .unwrap()
             .unwrap();
-        on_connect(client, tip_host).await.unwrap();
+        on_connect(client, ipv4_addr_from_real_server, tip_host)
+            .await
+            .unwrap();
     });
+}
+
+pub async fn listen_for(ipv4_addr_from_real_server: Ipv4Addr, tip_host: String) -> NonZeroU16 {
+    let server = TcpListener::bind(&format!("{}:0", ipv4_addr_from_real_server))
+        .await
+        .unwrap();
+    let port = server.local_addr().unwrap().port().try_into().unwrap();
+    spawn_listener(server, ipv4_addr_from_real_server, tip_host);
     port
 }

@@ -1,3 +1,4 @@
+use std::net::Ipv4Addr;
 use std::num::NonZeroU16;
 
 use anyhow::Result;
@@ -37,7 +38,7 @@ async fn proxy_raw(client: TcpStream, server_host: &str) -> Result<()> {
 
 async fn on_connect(
     mut client: TcpStream,
-    hostname_from_real_server: &str,
+    ipv4_addr_from_real_server: Ipv4Addr,
     real_server_host: &str,
 ) -> Result<()> {
     let (mut client_incoming, _) = client.split();
@@ -47,7 +48,7 @@ async fn on_connect(
             proxy_http(
                 client,
                 real_server_host,
-                hostname_from_real_server.to_owned(),
+                ipv4_addr_from_real_server.to_owned(),
             )
             .await?;
         }
@@ -64,7 +65,7 @@ async fn on_connect(
 
 pub async fn listen(
     listen_port: NonZeroU16,
-    hostname_from_real_server: &str,
+    ipv4_addr_from_real_server: Ipv4Addr,
     real_server_host: &str,
 ) {
     let server = TcpListener::bind(&format!("0.0.0.0:{}", listen_port))
@@ -72,12 +73,11 @@ pub async fn listen(
         .unwrap();
     loop {
         let (incoming_socket, _) = server.accept().await.unwrap();
-        let hostname_from_real_server = hostname_from_real_server.to_owned();
         let real_server_host = real_server_host.to_owned();
         spawn(async move {
             on_connect(
                 incoming_socket,
-                &hostname_from_real_server,
+                ipv4_addr_from_real_server,
                 &real_server_host,
             )
             .await

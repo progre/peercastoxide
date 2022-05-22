@@ -40,7 +40,6 @@ fn from_flg1_to_string(data: u8) -> String {
 
 #[derive(Getters)]
 pub struct AtomParent {
-    #[getset(get = "pub")]
     identifier: Cow<'static, [u8; 4]>,
     #[getset(get = "pub")]
     children: Vec<Atom>,
@@ -52,6 +51,14 @@ impl AtomParent {
             identifier,
             children,
         }
+    }
+
+    pub fn identifier(&self) -> &[u8; 4] {
+        self.identifier.as_ref()
+    }
+
+    pub fn children_mut(&mut self) -> &mut Vec<Atom> {
+        &mut self.children
     }
 }
 
@@ -77,14 +84,14 @@ pub struct AtomChild {
 }
 
 impl AtomChild {
-    pub fn u16(identifier: Cow<'static, [u8; 4]>, data: u16) -> Self {
-        Self::new(identifier, data.to_le_bytes().to_vec())
+    pub fn u16(identifier: impl Into<Cow<'static, [u8; 4]>>, data: u16) -> Self {
+        Self::new(identifier.into(), data.to_le_bytes().to_vec())
     }
 
-    pub fn ipv4(identifier: Cow<'static, [u8; 4]>, data: Ipv4Addr) -> Self {
+    pub fn ipv4(identifier: impl Into<Cow<'static, [u8; 4]>>, data: Ipv4Addr) -> Self {
         let mut octets = data.octets();
         octets.reverse();
-        Self::new(identifier, octets.to_vec())
+        Self::new(identifier.into(), octets.to_vec())
     }
 
     pub fn identifier(&self) -> &[u8; 4] {
