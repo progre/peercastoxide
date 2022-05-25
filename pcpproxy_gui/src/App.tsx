@@ -1,9 +1,10 @@
 import { css } from '@emotion/react';
-import { invoke } from '@tauri-apps/api';
+import { IconButton } from '@fluentui/react';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/tauri';
 import { useEffect, useState } from 'react';
 import ConnectionsView, { Connections } from './components/ConnectionsView';
-import Settings from './components/Settings';
+import SettingsView, { Settings } from './components/SettingsView';
 import dummyData from './utils/dummyData';
 
 export type AtomOrRaw = Atom | string;
@@ -78,6 +79,8 @@ export interface JsonPayload {
 }
 
 export default function App(): JSX.Element {
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [connections, setConnections] = useState<{
     [clientHostServerHost: string]: {
       clientHost: string;
@@ -86,6 +89,7 @@ export default function App(): JSX.Element {
       downloadStream: readonly Atom[];
     };
   }>({});
+
   useEffect(() => {
     dummyData.forEach((x) => {
       setConnections((connections) => updatedConnections(connections, x));
@@ -97,7 +101,8 @@ export default function App(): JSX.Element {
       );
     });
     (async () => {
-      // const initialData = await invoke('initial_data');
+      const initialData: any = await invoke('initial_data');
+      setSettings(initialData.settings);
     })();
 
     return () => {
@@ -114,12 +119,67 @@ export default function App(): JSX.Element {
         flex-direction: column;
       `}
     >
-      <div
-        css={css`
-          margin: 8px;
-        `}
-      >
-        <Settings />
+      <div>
+        {settings == null ? null : (
+          <div
+            hidden={!showSettings}
+            css={css`
+              position: absolute;
+              width: 100%;
+              z-index: 1;
+              background-color: #fdfdfe;
+            `}
+          >
+            <div
+              css={css`
+                padding: 8px;
+                border: 1px outset;
+              `}
+            >
+              <SettingsView
+                defaultValues={settings}
+                onClose={() => {
+                  setShowSettings(false);
+                }}
+                onSubmit={(newSettings) => {
+                  invoke('set_settings', { ...newSettings });
+                  setSettings(newSettings);
+                  setShowSettings(false);
+                }}
+              />
+            </div>
+          </div>
+        )}
+        <div
+          css={css`
+            display: flex;
+            align-items: center;
+          `}
+        >
+          <div
+            css={css`
+              flex: 1;
+              display: flex;
+              margin: 0 16px;
+              justify-content: space-between;
+            `}
+          >
+            <div>PeerCast: {settings?.realServerHost}</div>
+            <div>このマシン: {settings?.ipv4AddrFromRealServer}</div>
+            <div>公開ポート: {settings?.ipv4Port}</div>
+          </div>
+          <div
+            css={css`
+              text-align: end;
+              z-index: 2;
+            `}
+          >
+            <IconButton
+              iconProps={{ iconName: 'gear' }}
+              onClick={() => setShowSettings((value) => !value)}
+            />
+          </div>
+        </div>
       </div>
       <div
         css={css`

@@ -2,11 +2,14 @@ use std::{fmt::Debug, sync::Weak};
 
 use async_trait::async_trait;
 use serde::Serialize;
+use serde_json::Value;
 use tauri::{generate_context, AppHandle, Invoke, Manager};
+
+use crate::core::utils::dialog::show_dialog;
 
 #[async_trait]
 pub trait WindowDelegate {
-    async fn on_command(&self, command: &str) -> Option<&dyn erased_serde::Serialize>;
+    async fn on_command(&self, command: &str, payload: &Value) -> Option<Value>;
 }
 
 type DynSendSyncWindowDelegate = dyn Send + Sync + WindowDelegate;
@@ -21,7 +24,11 @@ fn build_app(delegate: Weak<DynSendSyncWindowDelegate>) -> tauri::App {
                     .get::<Weak<DynSendSyncWindowDelegate>>()
                     .upgrade()
                 {
-                    resolver.resolve(delegate.on_command(message.command()).await);
+                    resolver.resolve(
+                        delegate
+                            .on_command(message.command(), message.payload())
+                            .await,
+                    );
                 }
             });
         })
@@ -36,12 +43,10 @@ fn build_app(delegate: Weak<DynSendSyncWindowDelegate>) -> tauri::App {
                     );
                 }
             }
-            let none: Option<&tauri::Window> = None;
-            tauri::api::dialog::blocking::message(
-                none,
-                "Fatal",
-                &format!("アプリケーションの起動に失敗しました。{}({}) ", note, err),
-            );
+            show_dialog(&format!(
+                "アプリケーションの起動に失敗しました。{}({}) ",
+                note, err
+            ));
             err
         })
         .expect("error while running tauri application")

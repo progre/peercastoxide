@@ -10,6 +10,7 @@ import {
   faCircleInfo,
   faTag,
   faChevronRight,
+  faGear,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   faCircleXmark,
@@ -36,6 +37,7 @@ export default function initFluentUI() {
       errorbadge: <FontAwesomeIcon icon={faCircleXmark} />,
       folderopen: <FontAwesomeIcon icon={faFolderOpen} />,
       folder: <FontAwesomeIcon icon={faFolder} />,
+      gear: <FontAwesomeIcon icon={faGear} />,
       info: <FontAwesomeIcon icon={faCircleInfo} />,
       search: <FontAwesomeIcon icon={faSearch} />,
       tag: <FontAwesomeIcon icon={faTag} />,

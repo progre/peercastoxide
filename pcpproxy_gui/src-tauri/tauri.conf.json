@@ -7,7 +7,7 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "PCPProxy",
+    "productName": "PCPProxyGUI",
     "version": "0.1.0"
   },
   "tauri": {
