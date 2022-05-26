@@ -75,7 +75,13 @@ async fn on_connect(
             let output = NDJson::download(client_host.clone(), tip_host);
             let result = async {
                 let mut server_incoming = BufReader::new(server_incoming);
-                pipe_response_header(&mut server_incoming, &mut client_outgoing, &output).await?;
+                pipe_response_header(
+                    &mut server_incoming,
+                    &mut client_outgoing,
+                    |line| async { line },
+                    &output,
+                )
+                .await?;
                 pipe_pcp(
                     server_incoming,
                     client_outgoing,

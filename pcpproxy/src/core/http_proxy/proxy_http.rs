@@ -13,7 +13,10 @@ use tokio::{
 };
 
 use crate::{
-    core::utils::{disconnect_conn_of_download, disconnect_conn_of_upload, pipe_raw, PipeError},
+    core::{
+        pcp_proxy::pipe::pipe_pcp,
+        utils::{disconnect_conn_of_download, disconnect_conn_of_upload, pipe_raw, PipeError},
+    },
     features::{output::ndjson::NDJson, real_server_listener::listen_for::listen_for},
 };
 
@@ -51,11 +54,15 @@ where
     Ok(true)
 }
 
-pub async fn pipe_response_header(
+pub async fn pipe_response_header<T>(
     incoming: &mut BufReader<OwnedReadHalf>,
     outgoing: &mut OwnedWriteHalf,
+    on_line: impl Fn(String) -> T,
     output: &NDJson,
-) -> Result<bool, PipeError> {
+) -> Result<bool, PipeError>
+where
+    T: Future<Output = String>,
+{
     let mut all = String::new();
     loop {
         let mut line = String::new();
@@ -71,6 +78,7 @@ pub async fn pipe_response_header(
             .await
             .map_err(|err| PipeError::ByOutgoing(anyhow::Error::new(err)))?;
         all += &line;
+        line = on_line(line).await;
         if line.trim_end().is_empty() {
             break;
         }
@@ -80,19 +88,19 @@ pub async fn pipe_response_header(
 }
 
 async fn pipe_http_request(
-    incoming: OwnedReadHalf,
-    mut outgoing: OwnedWriteHalf,
+    incoming: &mut BufReader<OwnedReadHalf>,
+    outgoing: &mut OwnedWriteHalf,
     real_server_ipv4_port: NonZeroU16,
     ipv4_addr_from_real_server: Ipv4Addr,
     ipv4_port: NonZeroU16,
     output: &NDJson,
-) -> Result<(), PipeError> {
-    let mut incoming = BufReader::new(incoming);
+) -> Result<bool, PipeError> {
     loop {
         let replacement_pair = std::sync::Mutex::new(None);
+        let pcp = std::sync::Mutex::new(false);
         let remain = pipe_request_header(
-            &mut incoming,
-            &mut outgoing,
+            incoming,
+            outgoing,
             |mut line| async {
                 let pattern = r"^GET /(?:pls|stream)/(?:[0-9A-Fa-f]+)\?tip=([^&]+).* HTTP/.+\r?\n$";
                 if let Some(capture) = Regex::new(pattern).unwrap().captures(&line) {
@@ -108,6 +116,9 @@ async fn pipe_http_request(
                     line = line.replace(&tip_host, &replace_with);
                     *replacement_pair.lock().unwrap() = Some((tip_host, replace_with));
                 }
+                if line.starts_with("x-peercast-pcp:") {
+                    *pcp.lock().unwrap() = true;
+                }
                 line
             },
             output,
@@ -116,22 +127,47 @@ async fn pipe_http_request(
         if let Some((from, to)) = replacement_pair.lock().unwrap().as_ref() {
             output.info(&format!("Proxy: Replaced {} with {}", from, to));
         }
+        if *pcp.lock().unwrap() {
+            return Ok(true);
+        }
         if !remain {
-            return Ok(());
+            return Ok(false);
         }
     }
 }
 
+fn is_pcp(line: &str) -> bool {
+    let mut header = line.split(':');
+    header.next().unwrap().trim() == "Content-Type"
+        && header.next().unwrap().trim() == "application/x-peercast-pcp"
+}
+
 async fn pipe_http_response(
-    incoming: OwnedReadHalf,
-    mut outgoing: OwnedWriteHalf,
+    incoming: &mut BufReader<OwnedReadHalf>,
+    outgoing: &mut OwnedWriteHalf,
     output: &NDJson,
-) -> Result<(), PipeError> {
-    let mut incoming = BufReader::new(incoming);
-    if !pipe_response_header(&mut incoming, &mut outgoing, output).await? {
-        return Ok(());
+) -> Result<bool, PipeError> {
+    let pcp = std::sync::Mutex::new(false);
+    if !pipe_response_header(
+        incoming,
+        outgoing,
+        |line| async {
+            if is_pcp(&line) {
+                *pcp.lock().unwrap() = true;
+            }
+            line
+        },
+        output,
+    )
+    .await?
+    {
+        return Ok(false);
     }
-    pipe_raw(incoming, outgoing, output).await
+    if *pcp.lock().unwrap() {
+        Ok(true)
+    } else {
+        Ok(false)
+    }
 }
 
 pub async fn proxy_http(
@@ -141,29 +177,59 @@ pub async fn proxy_http(
     ipv4_port: NonZeroU16,
 ) -> Result<()> {
     let client_host = format!("{}", client.peer_addr().unwrap());
-    let (client_incoming, client_outgoing) = client.into_split();
+    let (client_incoming, mut client_outgoing) = client.into_split();
     let server = TcpStream::connect(server_host).await?;
-    let (server_incoming, server_outgoing) = server.into_split();
+    let (server_incoming, mut server_outgoing) = server.into_split();
     let server_host_string = server_host.into();
     let client_host_clone = client_host.clone();
     let real_server_ipv4_port = server_host.split(':').nth(1).unwrap().parse().unwrap();
     spawn(async move {
+        let mut client_incoming = BufReader::new(client_incoming);
         let output = NDJson::upload(client_host_clone, server_host_string);
         let result = pipe_http_request(
-            client_incoming,
-            server_outgoing,
+            &mut client_incoming,
+            &mut server_outgoing,
             real_server_ipv4_port,
             ipv4_addr_from_real_server,
             ipv4_port,
             &output,
         )
         .await;
+        let result = if let Ok(true) = result {
+            pipe_pcp(
+                client_incoming,
+                server_outgoing,
+                real_server_ipv4_port,
+                ipv4_addr_from_real_server,
+                ipv4_port,
+                &output,
+            )
+            .await
+        } else {
+            result.map(|_| ())
+        };
         disconnect_conn_of_upload(result, output).unwrap();
     });
     let server_host_string = server_host.into();
     spawn(async move {
+        let mut server_incoming = BufReader::new(server_incoming);
         let output = NDJson::download(client_host, server_host_string);
-        let result = pipe_http_response(server_incoming, client_outgoing, &output).await;
+        let result = pipe_http_response(&mut server_incoming, &mut client_outgoing, &output).await;
+        let result = if let Ok(true) = result {
+            pipe_pcp(
+                server_incoming,
+                client_outgoing,
+                real_server_ipv4_port,
+                ipv4_addr_from_real_server,
+                ipv4_port,
+                &output,
+            )
+            .await
+        } else if let Ok(false) = result {
+            pipe_raw(server_incoming, client_outgoing, &output).await
+        } else {
+            result.map(|_| ())
+        };
         disconnect_conn_of_download(result, output).unwrap();
     });
     Ok(())
