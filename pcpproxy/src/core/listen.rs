@@ -39,6 +39,7 @@ async fn proxy_raw(client: TcpStream, server_host: &str) -> Result<()> {
 async fn on_connect(
     mut client: TcpStream,
     ipv4_addr_from_real_server: Ipv4Addr,
+    ipv4_port: NonZeroU16,
     real_server_host: &str,
 ) -> Result<()> {
     let (mut client_incoming, _) = client.split();
@@ -49,6 +50,7 @@ async fn on_connect(
                 client,
                 real_server_host,
                 ipv4_addr_from_real_server.to_owned(),
+                ipv4_port,
             )
             .await?;
         }
@@ -78,6 +80,7 @@ pub async fn listen(
             on_connect(
                 incoming_socket,
                 ipv4_addr_from_real_server,
+                listen_port,
                 &real_server_host,
             )
             .await

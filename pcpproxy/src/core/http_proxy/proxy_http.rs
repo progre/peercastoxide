@@ -1,4 +1,4 @@
-use std::net::Ipv4Addr;
+use std::{net::Ipv4Addr, num::NonZeroU16};
 
 use anyhow::Result;
 use futures::Future;
@@ -82,7 +82,9 @@ pub async fn pipe_response_header(
 async fn pipe_http_request(
     incoming: OwnedReadHalf,
     mut outgoing: OwnedWriteHalf,
+    real_server_ipv4_port: NonZeroU16,
     ipv4_addr_from_real_server: Ipv4Addr,
+    ipv4_port: NonZeroU16,
     output: &NDJson,
 ) -> Result<(), PipeError> {
     let mut incoming = BufReader::new(incoming);
@@ -95,7 +97,13 @@ async fn pipe_http_request(
                 let pattern = r"^GET /(?:pls|stream)/(?:[0-9A-Fa-f]+)\?tip=([^&]+).* HTTP/.+\r?\n$";
                 if let Some(capture) = Regex::new(pattern).unwrap().captures(&line) {
                     let tip_host = capture[1].to_owned();
-                    let port = listen_for(ipv4_addr_from_real_server, tip_host.clone()).await;
+                    let port = listen_for(
+                        real_server_ipv4_port,
+                        ipv4_addr_from_real_server,
+                        ipv4_port,
+                        tip_host.clone(),
+                    )
+                    .await;
                     let replace_with = format!("{}:{}", ipv4_addr_from_real_server, port);
                     line = line.replace(&tip_host, &replace_with);
                     *replacement_pair.lock().unwrap() = Some((tip_host, replace_with));
@@ -130,6 +138,7 @@ pub async fn proxy_http(
     client: TcpStream,
     server_host: &str,
     ipv4_addr_from_real_server: Ipv4Addr,
+    ipv4_port: NonZeroU16,
 ) -> Result<()> {
     let client_host = format!("{}", client.peer_addr().unwrap());
     let (client_incoming, client_outgoing) = client.into_split();
@@ -137,12 +146,15 @@ pub async fn proxy_http(
     let (server_incoming, server_outgoing) = server.into_split();
     let server_host_string = server_host.into();
     let client_host_clone = client_host.clone();
+    let real_server_ipv4_port = server_host.split(':').nth(1).unwrap().parse().unwrap();
     spawn(async move {
         let output = NDJson::upload(client_host_clone, server_host_string);
         let result = pipe_http_request(
             client_incoming,
             server_outgoing,
+            real_server_ipv4_port,
             ipv4_addr_from_real_server,
+            ipv4_port,
             &output,
         )
         .await;

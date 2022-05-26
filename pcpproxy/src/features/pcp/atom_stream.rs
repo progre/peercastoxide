@@ -30,7 +30,7 @@ where
     #[async_recursion]
     pub async fn read(&mut self) -> Result<Option<Atom>> {
         let mut identifier = [0u8; 4];
-        let n = self.stream.read(&mut identifier).await?;
+        let n = self.stream.read_exact(&mut identifier).await?;
         if n == 0 {
             return Ok(None);
         }

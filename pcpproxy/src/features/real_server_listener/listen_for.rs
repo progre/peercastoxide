@@ -15,7 +15,9 @@ use crate::features::output::ndjson::NDJson;
 
 async fn on_connect(
     client: TcpStream,
+    real_server_ipv4_port: NonZeroU16,
     ipv4_addr_from_real_server: Ipv4Addr,
+    ipv4_port: NonZeroU16,
     tip_host: String,
 ) -> anyhow::Result<()> {
     let client_addr = client.peer_addr().unwrap();
@@ -56,7 +58,9 @@ async fn on_connect(
                 pipe_pcp(
                     client_incoming,
                     server_outgoing,
+                    real_server_ipv4_port,
                     ipv4_addr_from_real_server,
+                    ipv4_port,
                     &output,
                 )
                 .await
@@ -75,7 +79,9 @@ async fn on_connect(
                 pipe_pcp(
                     server_incoming,
                     client_outgoing,
+                    real_server_ipv4_port,
                     ipv4_addr_from_real_server,
+                    ipv4_port,
                     &output,
                 )
                 .await
@@ -87,23 +93,47 @@ async fn on_connect(
     Ok(())
 }
 
-fn spawn_listener(server: TcpListener, ipv4_addr_from_real_server: Ipv4Addr, tip_host: String) {
+fn spawn_listener(
+    server: TcpListener,
+    real_server_ipv4_port: NonZeroU16,
+    ipv4_addr_from_real_server: Ipv4Addr,
+    ipv4_port: NonZeroU16,
+    tip_host: String,
+) {
     spawn(async move {
-        let (client, _) = timeout(Duration::from_secs(10), server.accept())
-            .await
-            .unwrap()
-            .unwrap();
-        on_connect(client, ipv4_addr_from_real_server, tip_host)
-            .await
-            .unwrap();
+        let result = match timeout(Duration::from_secs(10), server.accept()).await {
+            Ok(ok) => ok,
+            Err(_) => return,
+        };
+        let (client, _) = result.unwrap();
+        on_connect(
+            client,
+            real_server_ipv4_port,
+            ipv4_addr_from_real_server,
+            ipv4_port,
+            tip_host,
+        )
+        .await
+        .unwrap();
     });
 }
 
-pub async fn listen_for(ipv4_addr_from_real_server: Ipv4Addr, tip_host: String) -> NonZeroU16 {
+pub async fn listen_for(
+    real_server_ipv4_port: NonZeroU16,
+    ipv4_addr_from_real_server: Ipv4Addr,
+    ipv4_port: NonZeroU16,
+    tip_host: String,
+) -> NonZeroU16 {
     let server = TcpListener::bind(&format!("{}:0", ipv4_addr_from_real_server))
         .await
         .unwrap();
     let port = server.local_addr().unwrap().port().try_into().unwrap();
-    spawn_listener(server, ipv4_addr_from_real_server, tip_host);
+    spawn_listener(
+        server,
+        real_server_ipv4_port,
+        ipv4_addr_from_real_server,
+        ipv4_port,
+        tip_host,
+    );
     port
 }

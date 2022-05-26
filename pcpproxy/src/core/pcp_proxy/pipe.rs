@@ -8,6 +8,7 @@ use tokio::net::tcp::OwnedWriteHalf;
 use crate::core::utils::PipeError;
 use crate::features::output::ndjson::NDJson;
 use crate::features::pcp::atom::AtomChild;
+use crate::features::pcp::atom_identifier::{BCST, HELO};
 use crate::features::pcp::{
     atom::Atom,
     atom_identifier::{HOST, IP, PORT},
@@ -72,7 +73,9 @@ fn replace_ipv4_port_pair(
 pub async fn pipe_pcp(
     incoming: impl AsyncRead + Unpin + Send + Sync,
     outgoing: OwnedWriteHalf,
+    real_server_ipv4_port: NonZeroU16,
     ipv4_addr_from_real_server: Ipv4Addr,
+    ipv4_port: NonZeroU16,
     output: &NDJson,
 ) -> Result<(), PipeError> {
     let mut atom_stream_reader = AtomStreamReader::new(incoming);
@@ -90,12 +93,76 @@ pub async fn pipe_pcp(
         output.output(&atom);
 
         match &mut atom {
+            Atom::Parent(parent) if parent.identifier() == BCST => {
+                for child in parent
+                    .children_mut()
+                    .iter_mut()
+                    .filter(|x| x.identifier() == HOST)
+                    .filter_map(|x| {
+                        if let Atom::Parent(parent) = x {
+                            Some(parent)
+                        } else {
+                            None
+                        }
+                    })
+                    .flat_map(|x| x.children_mut())
+                    .filter(|x| x.identifier() == PORT)
+                    .filter_map(|x| {
+                        if let Atom::Child(child) = x {
+                            Some(child)
+                        } else {
+                            None
+                        }
+                    })
+                    .filter(|x| x.to_u16() == real_server_ipv4_port.get())
+                {
+                    *child = AtomChild::u16(Cow::Borrowed(PORT), ipv4_port.get());
+                    output.info(&format!(
+                        "Proxy: Replaced {} with {}",
+                        real_server_ipv4_port, ipv4_port
+                    ));
+                }
+            }
+            Atom::Parent(parent) if parent.identifier() == HELO => {
+                if parent.children().iter().all(|x| x.identifier() != PORT) {
+                    parent.children_mut().push(Atom::Child(AtomChild::u16(
+                        Cow::Borrowed(PORT),
+                        ipv4_port.get(),
+                    )));
+                    output.info(&format!("Proxy: Append AtomChild(port, {})", ipv4_port));
+                } else {
+                    for child in parent
+                        .children_mut()
+                        .iter_mut()
+                        .filter(|x| x.identifier() == PORT)
+                        .filter_map(|x| {
+                            if let Atom::Child(child) = x {
+                                Some(child)
+                            } else {
+                                None
+                            }
+                        })
+                        .filter(|x| x.to_u16() == real_server_ipv4_port.get())
+                    {
+                        *child = AtomChild::u16(Cow::Borrowed(PORT), ipv4_port.get());
+                        output.info(&format!(
+                            "Proxy: Replaced {} with {}",
+                            real_server_ipv4_port, ipv4_port
+                        ));
+                    }
+                }
+            }
             Atom::Parent(parent) if parent.identifier() == HOST => {
                 let indices = find_ip_port_pair_indices(parent.children());
                 for ((ip_idx, replace_from_ip), (port_idx, replace_from_port)) in indices {
                     let replace_from = format!("{}:{}", replace_from_ip, replace_from_port);
-                    let replace_to_port =
-                        listen_for(ipv4_addr_from_real_server, replace_from.clone()).await;
+                    let replace_to_port = listen_for(
+                        real_server_ipv4_port,
+                        ipv4_addr_from_real_server,
+                        ipv4_port,
+                        replace_from.clone(),
+                    )
+                    .await;
                     replace_ipv4_port_pair(
                         parent.children_mut(),
                         ip_idx,
