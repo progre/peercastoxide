@@ -6,6 +6,7 @@ export interface Settings {
   realServerHost: string;
   ipv4AddrFromRealServer: string;
   ipv4Port: number;
+  isSkipDataPacket: boolean;
 }
 
 export default function SettingsView(props: {

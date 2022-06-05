@@ -65,32 +65,16 @@ impl WindowDelegate for WindowDelegateImpl {
         match command {
             "initial_data" => {
                 let settings = self.settings.lock().unwrap();
-                Some(json!({
-                    "settings": {
-                        "realServerHost": settings.real_server_host(),
-                        "ipv4AddrFromRealServer": settings.ipv4_addr_from_real_server(),
-                        "ipv4Port": settings.ipv4_port(),
-                    }
-                }))
+                Some(json!({ "settings": serde_json::to_value::<&Settings>(&settings).unwrap() }))
             }
             "set_settings" => {
                 log::trace!("payload {:?}", payload);
-                let obj = payload.as_object().unwrap();
-                let settings = {
-                    let settings = &mut self.settings.lock().unwrap();
-                    settings
-                        .set_real_server_host(obj["realServerHost"].as_str().unwrap().to_owned());
-                    settings.set_ipv4_addr_from_real_server(
-                        obj["ipv4AddrFromRealServer"].as_str().unwrap().to_owned(),
-                    );
-                    settings.set_ipv4_port(
-                        (obj["ipv4Port"].as_u64().unwrap() as u16)
-                            .try_into()
-                            .unwrap(),
-                    );
-                    settings.clone()
-                };
+                let settings: Settings = serde_json::from_value(payload.clone()).unwrap();
                 save_settings_and_show_dialog_if_error(&settings).await;
+                None
+            }
+            "restart" => {
+                let settings = self.settings.lock().unwrap();
                 self.sub_process
                     .upgrade()
                     .unwrap()

@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { IconButton } from '@fluentui/react';
+import { IconButton, Toggle } from '@fluentui/react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
 import { useEffect, useState } from 'react';
@@ -21,9 +21,22 @@ export interface AtomChild {
   payload?: string | readonly number[];
 }
 
+function isDataChannelPacket(atom: Atom): boolean {
+  return (
+    atom.identifier === 'chan' &&
+    atom.children?.length === 2 &&
+    !!atom.children
+      ?.find((x) => x.identifier === 'pkt\0')
+      ?.children?.some(
+        (x) => x.identifier === 'type' && 'payload' in x && x.payload === 'data'
+      )
+  );
+}
+
 function updatedConnections(
   connections: Connections,
-  payload: JsonPayload
+  payload: JsonPayload,
+  isSkipDataPacket: boolean
 ): Connections {
   let atom: Atom;
   if (payload.type === 'atom') {
@@ -59,6 +72,16 @@ function updatedConnections(
       };
       break;
     case 'download':
+      if (
+        isSkipDataPacket &&
+        connection.downloadStream.length > 0 &&
+        isDataChannelPacket(
+          connection.downloadStream[connection.downloadStream.length - 1]
+        ) &&
+        isDataChannelPacket(atom)
+      ) {
+        break;
+      }
       connection = {
         ...connection,
         downloadStream: [...connection.downloadStream, atom],
@@ -91,13 +114,19 @@ export default function App(): JSX.Element {
   }>({});
 
   useEffect(() => {
-    dummyData.forEach((x) => {
-      setConnections((connections) => updatedConnections(connections, x));
-    });
+    // dummyData.forEach((x) => {
+    //   setConnections((connections) =>
+    //     updatedConnections(connections, x, settings?.isSkipDataPacket === true)
+    //   );
+    // });
 
     const unlistenFnPromise = listen<JsonPayload>('json', (ev) => {
       setConnections((connections) =>
-        updatedConnections(connections, ev.payload)
+        updatedConnections(
+          connections,
+          ev.payload,
+          settings?.isSkipDataPacket === true
+        )
       );
     });
     (async () => {
@@ -141,10 +170,11 @@ export default function App(): JSX.Element {
                 onClose={() => {
                   setShowSettings(false);
                 }}
-                onSubmit={(newSettings) => {
-                  invoke('set_settings', { ...newSettings });
+                onSubmit={async (newSettings) => {
+                  await invoke('set_settings', { ...newSettings });
                   setSettings(newSettings);
                   setShowSettings(false);
+                  await invoke('restart');
                 }}
               />
             </div>
@@ -180,6 +210,25 @@ export default function App(): JSX.Element {
             />
           </div>
         </div>
+        <Toggle
+          label="データパケットをスキップする"
+          inlineLabel
+          disabled={settings == null}
+          checked={settings?.isSkipDataPacket}
+          onChange={async (ev, checked) => {
+            const newSettings = {
+              ...settings!,
+              isSkipDataPacket: checked === true,
+            };
+            await invoke('set_settings', newSettings);
+            setSettings(newSettings);
+          }}
+          css={css`
+            display: flex;
+            justify-content: end;
+            margin-right: 8px;
+          `}
+        />
       </div>
       <div
         css={css`
