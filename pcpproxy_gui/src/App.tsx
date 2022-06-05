@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { IconButton, Toggle } from '@fluentui/react';
+import { DefaultButton, IconButton, Toggle } from '@fluentui/react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
 import { useEffect, useState } from 'react';
@@ -146,6 +146,7 @@ export default function App(): JSX.Element {
         overflow: hidden;
         display: flex;
         flex-direction: column;
+        user-select: none;
       `}
     >
       <div>
@@ -210,25 +211,39 @@ export default function App(): JSX.Element {
             />
           </div>
         </div>
-        <Toggle
-          label="データパケットをスキップする"
-          inlineLabel
-          disabled={settings == null}
-          checked={settings?.isSkipDataPacket}
-          onChange={async (ev, checked) => {
-            const newSettings = {
-              ...settings!,
-              isSkipDataPacket: checked === true,
-            };
-            await invoke('set_settings', newSettings);
-            setSettings(newSettings);
-          }}
+        <div
           css={css`
             display: flex;
-            justify-content: end;
-            margin-right: 8px;
+            justify-content: space-between;
+            margin: 0 8px;
           `}
-        />
+        >
+          <DefaultButton
+            onClick={() => {
+              setConnections({});
+            }}
+          >
+            ログをクリア
+          </DefaultButton>
+          <Toggle
+            label="データパケットをスキップする"
+            inlineLabel
+            disabled={settings == null}
+            checked={settings?.isSkipDataPacket}
+            onChange={async (ev, checked) => {
+              const newSettings = {
+                ...settings!,
+                isSkipDataPacket: checked === true,
+              };
+              await invoke('set_settings', newSettings);
+              setSettings(newSettings);
+            }}
+            css={css`
+              display: flex;
+              justify-content: end;
+            `}
+          />
+        </div>
       </div>
       <div
         css={css`
