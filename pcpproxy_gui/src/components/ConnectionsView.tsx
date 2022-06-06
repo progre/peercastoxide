@@ -251,10 +251,19 @@ function ConnectionView(props: {
 
 export default function ConnectionsView(props: {
   connections: Connections;
-}): JSX.Element {
+}): JSX.Element | null {
   const [selectedConnectionKey, setSelectedConnectionKey] = useState<
     string | null
-  >(null);
+  >(() => null);
+
+  if (
+    selectedConnectionKey != null &&
+    props.connections[selectedConnectionKey!] == null
+  ) {
+    setSelectedConnectionKey(null);
+    return null;
+  }
+
   return (
     <div
       css={css`
@@ -273,6 +282,7 @@ export default function ConnectionsView(props: {
           text: `${value.clientHost} -> ${value.serverHost}`,
         }))}
         responsiveMode={ResponsiveMode.large}
+        selectedKey={selectedConnectionKey}
         onChange={(_ev, option) => {
           if (option == null) {
             return;
@@ -286,7 +296,8 @@ export default function ConnectionsView(props: {
           overflow: hidden;
         `}
       >
-        {selectedConnectionKey == null ? null : (
+        {selectedConnectionKey == null ||
+        props.connections[selectedConnectionKey] == null ? null : (
           <ConnectionView
             clientHost={props.connections[selectedConnectionKey].clientHost}
             serverHost={props.connections[selectedConnectionKey].serverHost}
