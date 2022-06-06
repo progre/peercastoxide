@@ -26,6 +26,12 @@ pub struct SubProcess {
     process: Option<(Child, JoinHandle<()>)>,
 }
 
+impl Default for SubProcess {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SubProcess {
     pub fn new() -> Self {
         struct EmptySubProcessDelegate {}
@@ -39,8 +45,9 @@ impl SubProcess {
         }
     }
 
-    pub fn spawn(&mut self, settings: &Settings) {
-        if let Some((_, handle)) = self.process.as_ref() {
+    pub async fn spawn(&mut self, settings: &Settings) {
+        if let Some((process, handle)) = self.process.as_mut() {
+            process.kill().await.unwrap();
             handle.abort();
         }
         let mut child = Command::new("pcpproxy")

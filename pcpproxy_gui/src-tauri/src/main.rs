@@ -11,6 +11,7 @@ use std::sync::{Arc, Weak};
 use async_trait::async_trait;
 use getset::Setters;
 use serde_json::{json, Value};
+use tokio::sync::Mutex;
 
 use crate::core::settings::Settings;
 use crate::features::{
@@ -46,7 +47,7 @@ impl SubProcessDelegate for SubProcessDelegateImpl {
 struct WindowDelegateImpl {
     settings: std::sync::Mutex<Settings>,
     #[getset(set = "pub")]
-    sub_process: Weak<std::sync::Mutex<SubProcess>>,
+    sub_process: Weak<Mutex<SubProcess>>,
 }
 
 impl WindowDelegateImpl {
@@ -74,13 +75,14 @@ impl WindowDelegate for WindowDelegateImpl {
                 None
             }
             "restart" => {
-                let settings = self.settings.lock().unwrap();
+                let settings = self.settings.lock().unwrap().clone();
                 self.sub_process
                     .upgrade()
                     .unwrap()
                     .lock()
-                    .unwrap()
-                    .spawn(&settings);
+                    .await
+                    .spawn(&settings)
+                    .await;
                 None
             }
             _ => unreachable!(),
@@ -102,7 +104,7 @@ async fn main() {
     let mut sub_process_delegate = SubProcessDelegateImpl::new();
     let mut window_delegate = WindowDelegateImpl::new(settings.clone());
 
-    let sub_process = Arc::new(std::sync::Mutex::new(SubProcess::new()));
+    let sub_process = Default::default();
     let window = Arc::new(Window::new());
 
     sub_process_delegate.set_window(Arc::downgrade(&window));
@@ -112,12 +114,12 @@ async fn main() {
     let window_delegate = Arc::new(window_delegate);
 
     {
-        let mut sub_process = sub_process.lock().unwrap();
+        let mut sub_process = sub_process.lock().await;
         sub_process.set_delegate(Arc::<SubProcessDelegateImpl>::downgrade(
             &sub_process_delegate,
         ));
 
-        sub_process.spawn(&settings);
+        sub_process.spawn(&settings).await;
     }
     window.run(Arc::<WindowDelegateImpl>::downgrade(&window_delegate));
 }
