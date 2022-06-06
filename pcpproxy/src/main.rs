@@ -7,6 +7,10 @@ use std::num::NonZeroU16;
 
 use anyhow::Result;
 use clap::{Arg, Command};
+use tokio::{
+    io::{self, AsyncReadExt},
+    spawn,
+};
 
 use crate::core::listen::listen;
 
@@ -42,6 +46,16 @@ async fn main() -> Result<()> {
         )
         .get_matches();
 
+    // exit when stdin is closed
+    spawn(async {
+        let mut buf = [0u8; 1024];
+        let mut stdin = io::stdin(); // We get `Stdin` here.
+        loop {
+            if stdin.read_exact(&mut buf).await.is_err() {
+                std::process::exit(1);
+            }
+        }
+    });
     listen(
         NonZeroU16::new(matches.value_of("listen_port").unwrap().parse().unwrap()).unwrap(),
         matches

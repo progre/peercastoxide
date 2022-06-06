@@ -47,6 +47,7 @@ impl SubProcess {
             .arg(settings.ipv4_port().to_string())
             .arg(settings.ipv4_addr_from_real_server())
             .arg(settings.real_server_host())
+            .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .kill_on_drop(true)
             .creation_flags(CREATE_NO_WINDOW.0)
