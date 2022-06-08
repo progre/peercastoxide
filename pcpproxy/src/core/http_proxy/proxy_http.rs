@@ -1,4 +1,8 @@
-use std::{net::Ipv4Addr, num::NonZeroU16};
+use std::{
+    net::{IpAddr, SocketAddr},
+    num::NonZeroU16,
+    str::FromStr,
+};
 
 use anyhow::Result;
 use futures::Future;
@@ -90,9 +94,9 @@ where
 async fn pipe_http_request(
     incoming: &mut BufReader<OwnedReadHalf>,
     outgoing: &mut OwnedWriteHalf,
-    real_server_ipv4_port: NonZeroU16,
-    ipv4_addr_from_real_server: Ipv4Addr,
-    ipv4_port: NonZeroU16,
+    real_server_port: NonZeroU16,
+    ip_addr_from_real_server: IpAddr,
+    port: NonZeroU16,
     output: &NDJson,
 ) -> Result<bool, PipeError> {
     loop {
@@ -106,13 +110,14 @@ async fn pipe_http_request(
                 if let Some(capture) = Regex::new(pattern).unwrap().captures(&line) {
                     let tip_host = capture[1].to_owned();
                     let port = listen_for(
-                        real_server_ipv4_port,
-                        ipv4_addr_from_real_server,
-                        ipv4_port,
-                        tip_host.clone(),
+                        real_server_port,
+                        ip_addr_from_real_server,
+                        port,
+                        SocketAddr::from_str(&tip_host).unwrap(),
                     )
                     .await;
-                    let replace_with = format!("{}:{}", ipv4_addr_from_real_server, port);
+                    let replace_with =
+                        SocketAddr::new(ip_addr_from_real_server, port.get()).to_string();
                     line = line.replace(&tip_host, &replace_with);
                     *replacement_pair.lock().unwrap() = Some((tip_host, replace_with));
                 }
@@ -172,26 +177,26 @@ async fn pipe_http_response(
 
 pub async fn proxy_http(
     client: TcpStream,
-    server_host: &str,
-    ipv4_addr_from_real_server: Ipv4Addr,
-    ipv4_port: NonZeroU16,
+    real_server_host: &str,
+    ip_addr_from_real_server: IpAddr,
+    listen_port: NonZeroU16,
 ) -> Result<()> {
     let client_host = format!("{}", client.peer_addr().unwrap());
     let (client_incoming, mut client_outgoing) = client.into_split();
-    let server = TcpStream::connect(server_host).await?;
+    let server = TcpStream::connect(real_server_host).await?;
     let (server_incoming, mut server_outgoing) = server.into_split();
-    let server_host_string = server_host.into();
+    let server_host_string = real_server_host.into();
     let client_host_clone = client_host.clone();
-    let real_server_ipv4_port = server_host.split(':').nth(1).unwrap().parse().unwrap();
+    let real_server_port = real_server_host.split(':').nth(1).unwrap().parse().unwrap();
     spawn(async move {
         let mut client_incoming = BufReader::new(client_incoming);
         let output = NDJson::upload(client_host_clone, server_host_string);
         let result = pipe_http_request(
             &mut client_incoming,
             &mut server_outgoing,
-            real_server_ipv4_port,
-            ipv4_addr_from_real_server,
-            ipv4_port,
+            real_server_port,
+            ip_addr_from_real_server,
+            listen_port,
             &output,
         )
         .await;
@@ -199,9 +204,9 @@ pub async fn proxy_http(
             pipe_pcp(
                 client_incoming,
                 server_outgoing,
-                real_server_ipv4_port,
-                ipv4_addr_from_real_server,
-                ipv4_port,
+                real_server_port,
+                ip_addr_from_real_server,
+                listen_port,
                 &output,
             )
             .await
@@ -210,7 +215,7 @@ pub async fn proxy_http(
         };
         disconnect_conn_of_upload(result, output).unwrap();
     });
-    let server_host_string = server_host.into();
+    let server_host_string = real_server_host.into();
     spawn(async move {
         let mut server_incoming = BufReader::new(server_incoming);
         let output = NDJson::download(client_host, server_host_string);
@@ -219,9 +224,9 @@ pub async fn proxy_http(
             pipe_pcp(
                 server_incoming,
                 client_outgoing,
-                real_server_ipv4_port,
-                ipv4_addr_from_real_server,
-                ipv4_port,
+                real_server_port,
+                ip_addr_from_real_server,
+                listen_port,
                 &output,
             )
             .await

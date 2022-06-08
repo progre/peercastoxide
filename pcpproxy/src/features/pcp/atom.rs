@@ -1,4 +1,4 @@
-use std::net::Ipv4Addr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::{borrow::Cow, io::Write};
 
 use derive_new::new;
@@ -88,7 +88,20 @@ impl AtomChild {
         Self::new(identifier.into(), data.to_le_bytes().to_vec())
     }
 
-    pub fn ipv4(identifier: impl Into<Cow<'static, [u8; 4]>>, data: Ipv4Addr) -> Self {
+    pub fn ip(identifier: impl Into<Cow<'static, [u8; 4]>>, data: IpAddr) -> Self {
+        match data {
+            IpAddr::V4(ip) => Self::ipv4(identifier, ip),
+            IpAddr::V6(ip) => Self::ipv6(identifier, ip),
+        }
+    }
+
+    fn ipv4(identifier: impl Into<Cow<'static, [u8; 4]>>, data: Ipv4Addr) -> Self {
+        let mut octets = data.octets();
+        octets.reverse();
+        Self::new(identifier.into(), octets.to_vec())
+    }
+
+    fn ipv6(identifier: impl Into<Cow<'static, [u8; 4]>>, data: Ipv6Addr) -> Self {
         let mut octets = data.octets();
         octets.reverse();
         Self::new(identifier.into(), octets.to_vec())
@@ -108,8 +121,22 @@ impl AtomChild {
         u16::from_le_bytes(num)
     }
 
-    pub fn to_ipv4(&self) -> Ipv4Addr {
+    pub fn to_ip(&self) -> IpAddr {
+        match self.data.len() {
+            4 => IpAddr::V4(self.to_ipv4()),
+            16 => IpAddr::V6(self.to_ipv6()),
+            _ => panic!("Invalid IP atom"),
+        }
+    }
+
+    fn to_ipv4(&self) -> Ipv4Addr {
         Ipv4Addr::new(self.data[3], self.data[2], self.data[1], self.data[0])
+    }
+
+    fn to_ipv6(&self) -> Ipv6Addr {
+        let mut octets = [0u8; 16];
+        (&mut octets[0..16]).write_all(&self.data).unwrap();
+        Ipv6Addr::from(octets)
     }
 }
 
@@ -136,6 +163,9 @@ impl Serialize for AtomChild {
             }
             IP | RIP | UPIP if self.data().len() == 4 => {
                 map.serialize_entry("payload", &self.to_ipv4().to_string())?;
+            }
+            IP | RIP | UPIP if self.data().len() == 16 => {
+                map.serialize_entry("payload", &self.to_ipv6().to_string())?;
             }
             CID | FROM | ID | SID if self.data().len() == 16 => {
                 let value = self

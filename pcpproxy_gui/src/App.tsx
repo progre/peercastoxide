@@ -196,8 +196,8 @@ export default function App(): JSX.Element {
             `}
           >
             <div>PeerCast: {settings?.realServerHost}</div>
-            <div>このマシン: {settings?.ipv4AddrFromRealServer}</div>
-            <div>公開ポート: {settings?.ipv4Port}</div>
+            <div>このマシン: {settings?.ipAddrFromRealServer}</div>
+            <div>公開ポート: {settings?.listenPort}</div>
           </div>
           <div
             css={css`

@@ -35,8 +35,8 @@ async fn main() -> Result<()> {
                 }),
         )
         .arg(
-            Arg::new("ipv4_addr_from_real_server")
-                .help("IPv4 address from real PeerCast")
+            Arg::new("ip_addr_from_real_server")
+                .help("IP address from real PeerCast")
                 .required(true),
         )
         .arg(
@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
     listen(
         NonZeroU16::new(matches.value_of("listen_port").unwrap().parse().unwrap()).unwrap(),
         matches
-            .value_of("ipv4_addr_from_real_server")
+            .value_of("ip_addr_from_real_server")
             .unwrap()
             .parse()
             .unwrap(),

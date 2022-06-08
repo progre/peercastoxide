@@ -1,5 +1,6 @@
+use std::borrow::Cow;
+use std::net::{IpAddr, SocketAddr};
 use std::num::NonZeroU16;
-use std::{borrow::Cow, net::Ipv4Addr};
 
 use anyhow::Result;
 use tokio::io::AsyncRead;
@@ -28,7 +29,7 @@ pub fn big_vec<T: Default>(len: usize) -> Vec<T> {
 
 fn find_ip_port_pair_indices<'a>(
     children: &'a [Atom],
-) -> Vec<((usize, Ipv4Addr), (usize, NonZeroU16))> {
+) -> Vec<((usize, IpAddr), (usize, NonZeroU16))> {
     let filter_map = |identifier: &[u8; 4], (i, x): (usize, &'a Atom)| {
         if x.identifier() != identifier {
             return None;
@@ -44,7 +45,7 @@ fn find_ip_port_pair_indices<'a>(
         .iter()
         .enumerate()
         .filter_map(|item| filter_map(IP, item))
-        .map(|(idx, atom)| (idx, atom.to_ipv4()));
+        .map(|(idx, atom)| (idx, atom.to_ip()));
     let port_indices = children
         .iter()
         .enumerate()
@@ -53,29 +54,27 @@ fn find_ip_port_pair_indices<'a>(
     ip_indices.zip(port_indices).collect()
 }
 
-fn replace_ipv4_port_pair(
+fn replace_ip_port_pair(
     children: &mut [Atom],
-    ipv4_idx: usize,
+    ip_idx: usize,
     port_idx: usize,
-    ipv4: Ipv4Addr,
+    ip: IpAddr,
     port: NonZeroU16,
 ) {
-    if let Atom::Child(ip_atom) = &mut children[ipv4_idx] {
-        *ip_atom = AtomChild::ipv4(Cow::Borrowed(IP), ipv4);
-    } else {
+    if let Atom::Child(ip_atom) = &mut children[ip_idx] {
+        *ip_atom = AtomChild::ip(Cow::Borrowed(IP), ip);
     }
     if let Atom::Child(port_atom) = &mut children[port_idx] {
         *port_atom = AtomChild::u16(Cow::Borrowed(PORT), port.into());
-    } else {
     }
 }
 
 pub async fn pipe_pcp(
     incoming: impl AsyncRead + Unpin + Send + Sync,
     outgoing: OwnedWriteHalf,
-    real_server_ipv4_port: NonZeroU16,
-    ipv4_addr_from_real_server: Ipv4Addr,
-    ipv4_port: NonZeroU16,
+    real_server_port: NonZeroU16,
+    ip_addr_from_real_server: IpAddr,
+    listen_port: NonZeroU16,
     output: &NDJson,
 ) -> Result<(), PipeError> {
     let mut atom_stream_reader = AtomStreamReader::new(incoming);
@@ -114,12 +113,12 @@ pub async fn pipe_pcp(
                             None
                         }
                     })
-                    .filter(|x| x.to_u16() == real_server_ipv4_port.get())
+                    .filter(|x| x.to_u16() == real_server_port.get())
                 {
-                    *child = AtomChild::u16(Cow::Borrowed(PORT), ipv4_port.get());
+                    *child = AtomChild::u16(Cow::Borrowed(PORT), listen_port.get());
                     output.info(&format!(
                         "Proxy: Replaced {} with {}",
-                        real_server_ipv4_port, ipv4_port
+                        real_server_port, listen_port
                     ));
                 }
             }
@@ -127,9 +126,9 @@ pub async fn pipe_pcp(
                 if parent.children().iter().all(|x| x.identifier() != PORT) {
                     parent.children_mut().push(Atom::Child(AtomChild::u16(
                         Cow::Borrowed(PORT),
-                        ipv4_port.get(),
+                        listen_port.get(),
                     )));
-                    output.info(&format!("Proxy: Append AtomChild(port, {})", ipv4_port));
+                    output.info(&format!("Proxy: Append AtomChild(port, {})", listen_port));
                 } else {
                     for child in parent
                         .children_mut()
@@ -142,12 +141,12 @@ pub async fn pipe_pcp(
                                 None
                             }
                         })
-                        .filter(|x| x.to_u16() == real_server_ipv4_port.get())
+                        .filter(|x| x.to_u16() == real_server_port.get())
                     {
-                        *child = AtomChild::u16(Cow::Borrowed(PORT), ipv4_port.get());
+                        *child = AtomChild::u16(Cow::Borrowed(PORT), listen_port.get());
                         output.info(&format!(
                             "Proxy: Replaced {} with {}",
-                            real_server_ipv4_port, ipv4_port
+                            real_server_port, listen_port
                         ));
                     }
                 }
@@ -155,22 +154,22 @@ pub async fn pipe_pcp(
             Atom::Parent(parent) if parent.identifier() == HOST => {
                 let indices = find_ip_port_pair_indices(parent.children());
                 for ((ip_idx, replace_from_ip), (port_idx, replace_from_port)) in indices {
-                    let replace_from = format!("{}:{}", replace_from_ip, replace_from_port);
+                    let replace_from = SocketAddr::new(replace_from_ip, replace_from_port.get());
                     let replace_to_port = listen_for(
-                        real_server_ipv4_port,
-                        ipv4_addr_from_real_server,
-                        ipv4_port,
-                        replace_from.clone(),
+                        real_server_port,
+                        ip_addr_from_real_server,
+                        listen_port,
+                        replace_from,
                     )
                     .await;
-                    replace_ipv4_port_pair(
+                    replace_ip_port_pair(
                         parent.children_mut(),
                         ip_idx,
                         port_idx,
-                        ipv4_addr_from_real_server,
+                        ip_addr_from_real_server,
                         replace_to_port,
                     );
-                    let replace_to = format!("{}:{}", ipv4_addr_from_real_server, replace_to_port);
+                    let replace_to = format!("{}:{}", ip_addr_from_real_server, replace_to_port);
                     output.info(&format!(
                         "Proxy: Replaced {} with {}",
                         replace_from, replace_to

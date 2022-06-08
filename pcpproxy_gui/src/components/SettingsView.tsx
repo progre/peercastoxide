@@ -4,8 +4,8 @@ import { useState } from 'react';
 
 export interface Settings {
   realServerHost: string;
-  ipv4AddrFromRealServer: string;
-  ipv4Port: number;
+  ipAddrFromRealServer: string;
+  listenPort: number;
   isSkipDataPacket: boolean;
 }
 
@@ -68,11 +68,11 @@ export default function SettingsView(props: {
           `}
           label="PeerCast から見たこのマシンの IPv4 アドレス"
           placeholder="127.0.0.1"
-          value={currentValues.ipv4AddrFromRealServer}
+          value={currentValues.ipAddrFromRealServer}
           onChange={(_e, value) =>
             setCurrentValues((values) => ({
               ...values,
-              ipv4AddrFromRealServer: value ?? '',
+              ipAddrFromRealServer: value ?? '',
             }))
           }
         />
@@ -90,11 +90,11 @@ export default function SettingsView(props: {
           }}
           max={65535}
           min={1}
-          value={String(currentValues.ipv4Port)}
+          value={String(currentValues.listenPort)}
           onChange={(_e, value) =>
             setCurrentValues((values) => ({
               ...values,
-              ipv4Port: Number(value ?? ''),
+              listenPort: Number(value ?? ''),
             }))
           }
         />

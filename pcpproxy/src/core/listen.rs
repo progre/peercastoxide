@@ -1,4 +1,7 @@
+use std::net::IpAddr;
 use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
+use std::net::SocketAddr;
 use std::num::NonZeroU16;
 
 use anyhow::Result;
@@ -19,8 +22,8 @@ use super::utils::pipe_raw;
 async fn proxy_pcp(
     client: TcpStream,
     server_host: &str,
-    ipv4_addr_from_real_server: Ipv4Addr,
-    ipv4_port: NonZeroU16,
+    ip_addr_from_real_server: IpAddr,
+    listen_port: NonZeroU16,
 ) -> Result<()> {
     let client_host = format!("{}", client.peer_addr().unwrap());
     let (client_incoming, client_outgoing) = client.into_split();
@@ -28,15 +31,15 @@ async fn proxy_pcp(
     let (server_incoming, server_outgoing) = server.into_split();
     let server_host_string = server_host.into();
     let client_host_clone = client_host.clone();
-    let real_server_ipv4_port = server_host.split(':').nth(1).unwrap().parse().unwrap();
+    let real_server_port = server_host.split(':').nth(1).unwrap().parse().unwrap();
     spawn(async move {
         let output = NDJson::upload(client_host_clone, server_host_string);
         let result = pipe_pcp(
             client_incoming,
             server_outgoing,
-            real_server_ipv4_port,
-            ipv4_addr_from_real_server,
-            ipv4_port,
+            real_server_port,
+            ip_addr_from_real_server,
+            listen_port,
             &output,
         )
         .await;
@@ -48,9 +51,9 @@ async fn proxy_pcp(
         let result = pipe_pcp(
             server_incoming,
             client_outgoing,
-            real_server_ipv4_port,
-            ipv4_addr_from_real_server,
-            ipv4_port,
+            real_server_port,
+            ip_addr_from_real_server,
+            listen_port,
             &output,
         )
         .await;
@@ -82,30 +85,18 @@ async fn proxy_raw(client: TcpStream, server_host: &str) -> Result<()> {
 
 async fn on_connect(
     mut client: TcpStream,
-    ipv4_addr_from_real_server: Ipv4Addr,
-    ipv4_port: NonZeroU16,
+    ip_addr_from_real_server: IpAddr,
+    port: NonZeroU16,
     real_server_host: &str,
 ) -> Result<()> {
     let (mut client_incoming, _) = client.split();
     let header = check_header(&mut client_incoming).await?;
     match header {
         Header::Http => {
-            proxy_http(
-                client,
-                real_server_host,
-                ipv4_addr_from_real_server,
-                ipv4_port,
-            )
-            .await?;
+            proxy_http(client, real_server_host, ip_addr_from_real_server, port).await?;
         }
         Header::Pcp => {
-            proxy_pcp(
-                client,
-                real_server_host,
-                ipv4_addr_from_real_server,
-                ipv4_port,
-            )
-            .await?;
+            proxy_pcp(client, real_server_host, ip_addr_from_real_server, port).await?;
         }
         Header::Unknown => {
             proxy_raw(client, real_server_host).await?;
@@ -117,10 +108,15 @@ async fn on_connect(
 
 pub async fn listen(
     listen_port: NonZeroU16,
-    ipv4_addr_from_real_server: Ipv4Addr,
+    ip_addr_from_real_server: IpAddr,
     real_server_host: &str,
 ) {
-    let server = TcpListener::bind(&format!("0.0.0.0:{}", listen_port))
+    let unspecified_addr: IpAddr = match ip_addr_from_real_server {
+        IpAddr::V4(_) => Ipv4Addr::UNSPECIFIED.into(),
+        IpAddr::V6(_) => Ipv6Addr::UNSPECIFIED.into(),
+    };
+
+    let server = TcpListener::bind(SocketAddr::new(unspecified_addr, listen_port.get()))
         .await
         .unwrap();
     loop {
@@ -129,7 +125,7 @@ pub async fn listen(
         spawn(async move {
             on_connect(
                 incoming_socket,
-                ipv4_addr_from_real_server,
+                ip_addr_from_real_server,
                 listen_port,
                 &real_server_host,
             )

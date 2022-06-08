@@ -1,4 +1,4 @@
-use std::net::Ipv4Addr;
+use std::net::{IpAddr, SocketAddr};
 use std::{num::NonZeroU16, time::Duration};
 
 use regex::Regex;
@@ -15,10 +15,10 @@ use crate::features::output::ndjson::NDJson;
 
 async fn on_connect(
     client: TcpStream,
-    real_server_ipv4_port: NonZeroU16,
-    ipv4_addr_from_real_server: Ipv4Addr,
-    ipv4_port: NonZeroU16,
-    tip_host: String,
+    real_server_port: NonZeroU16,
+    ip_addr_from_real_server: IpAddr,
+    listen_port: NonZeroU16,
+    tip_host: SocketAddr,
 ) -> anyhow::Result<()> {
     let client_addr = client.peer_addr().unwrap();
 
@@ -28,26 +28,22 @@ async fn on_connect(
 
     {
         let client_host = client_addr.to_string();
-        let tip_host = tip_host.clone();
         spawn(async move {
-            let output = NDJson::upload(client_host, tip_host.clone());
+            let output = NDJson::upload(client_host, tip_host.to_string());
             let result = async {
                 let replacement_pair = std::sync::Mutex::new(None);
                 let mut client_incoming = BufReader::new(client_incoming);
                 pipe_request_header(
                     &mut client_incoming,
                     &mut server_outgoing,
-                    |mut line| {
-                        let tip_host = tip_host.clone();
-                        async {
-                            let pattern = r"^Host: ?([^\r\n]+)\r?\n$";
-                            if let Some(capture) = Regex::new(pattern).unwrap().captures(&line) {
-                                let my_host = capture[1].to_owned();
-                                line = line.replace(&my_host, &tip_host);
-                                *replacement_pair.lock().unwrap() = Some((my_host, tip_host));
-                            }
-                            line
+                    |mut line| async {
+                        let pattern = r"^Host: ?([^\r\n]+)\r?\n$";
+                        if let Some(capture) = Regex::new(pattern).unwrap().captures(&line) {
+                            let my_host = capture[1].to_owned();
+                            line = line.replace(&my_host, &tip_host.to_string());
+                            *replacement_pair.lock().unwrap() = Some((my_host, tip_host));
                         }
+                        line
                     },
                     &output,
                 )
@@ -58,9 +54,9 @@ async fn on_connect(
                 pipe_pcp(
                     client_incoming,
                     server_outgoing,
-                    real_server_ipv4_port,
-                    ipv4_addr_from_real_server,
-                    ipv4_port,
+                    real_server_port,
+                    ip_addr_from_real_server,
+                    listen_port,
                     &output,
                 )
                 .await
@@ -72,7 +68,7 @@ async fn on_connect(
     {
         let client_host = client_addr.to_string();
         spawn(async move {
-            let output = NDJson::download(client_host.clone(), tip_host);
+            let output = NDJson::download(client_host.clone(), tip_host.to_string());
             let result = async {
                 let mut server_incoming = BufReader::new(server_incoming);
                 pipe_response_header(
@@ -85,9 +81,9 @@ async fn on_connect(
                 pipe_pcp(
                     server_incoming,
                     client_outgoing,
-                    real_server_ipv4_port,
-                    ipv4_addr_from_real_server,
-                    ipv4_port,
+                    real_server_port,
+                    ip_addr_from_real_server,
+                    listen_port,
                     &output,
                 )
                 .await
@@ -101,10 +97,10 @@ async fn on_connect(
 
 fn spawn_listener(
     server: TcpListener,
-    real_server_ipv4_port: NonZeroU16,
-    ipv4_addr_from_real_server: Ipv4Addr,
-    ipv4_port: NonZeroU16,
-    tip_host: String,
+    real_server_port: NonZeroU16,
+    ip_addr_from_real_server: IpAddr,
+    listen_port: NonZeroU16,
+    tip_host: SocketAddr,
 ) {
     spawn(async move {
         let result = match timeout(Duration::from_secs(10), server.accept()).await {
@@ -114,9 +110,9 @@ fn spawn_listener(
         let (client, _) = result.unwrap();
         on_connect(
             client,
-            real_server_ipv4_port,
-            ipv4_addr_from_real_server,
-            ipv4_port,
+            real_server_port,
+            ip_addr_from_real_server,
+            listen_port,
             tip_host,
         )
         .await
@@ -125,20 +121,20 @@ fn spawn_listener(
 }
 
 pub async fn listen_for(
-    real_server_ipv4_port: NonZeroU16,
-    ipv4_addr_from_real_server: Ipv4Addr,
-    ipv4_port: NonZeroU16,
-    tip_host: String,
+    real_server_port: NonZeroU16,
+    ip_addr_from_real_server: IpAddr,
+    listen_port: NonZeroU16,
+    tip_host: SocketAddr,
 ) -> NonZeroU16 {
-    let server = TcpListener::bind(&format!("{}:0", ipv4_addr_from_real_server))
+    let server = TcpListener::bind(SocketAddr::new(ip_addr_from_real_server, 0))
         .await
         .unwrap();
     let port = server.local_addr().unwrap().port().try_into().unwrap();
     spawn_listener(
         server,
-        real_server_ipv4_port,
-        ipv4_addr_from_real_server,
-        ipv4_port,
+        real_server_port,
+        ip_addr_from_real_server,
+        listen_port,
         tip_host,
     );
     port

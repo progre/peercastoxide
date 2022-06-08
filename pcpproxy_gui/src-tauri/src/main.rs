@@ -96,7 +96,6 @@ async fn main() {
         env_logger::Builder::from_default_env()
             .filter_module("app", log::LevelFilter::Trace)
             .init();
-        log::trace!("log");
     }
 
     let settings = load_settings_and_show_dialog_if_error().await;

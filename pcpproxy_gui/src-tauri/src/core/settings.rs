@@ -9,9 +9,9 @@ pub struct Settings {
     #[getset(get = "pub", set = "pub")]
     real_server_host: String,
     #[getset(get = "pub", set = "pub")]
-    ipv4_addr_from_real_server: String,
+    ip_addr_from_real_server: String,
     #[getset(get = "pub", set = "pub")]
-    ipv4_port: NonZeroU16,
+    listen_port: NonZeroU16,
     #[getset(get = "pub", set = "pub")]
     is_skip_data_packet: bool,
 }
@@ -20,8 +20,8 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             real_server_host: "localhost:7145".into(),
-            ipv4_addr_from_real_server: "127.0.0.1".into(),
-            ipv4_port: 7144.try_into().unwrap(),
+            ip_addr_from_real_server: "127.0.0.1".into(),
+            listen_port: 7144.try_into().unwrap(),
             is_skip_data_packet: Default::default(),
         }
     }

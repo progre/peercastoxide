@@ -51,8 +51,8 @@ impl SubProcess {
             handle.abort();
         }
         let mut child = Command::new("pcpproxy")
-            .arg(settings.ipv4_port().to_string())
-            .arg(settings.ipv4_addr_from_real_server())
+            .arg(settings.listen_port().to_string())
+            .arg(settings.ip_addr_from_real_server())
             .arg(settings.real_server_host())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
