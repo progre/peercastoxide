@@ -1,3 +1,7 @@
 [workspace]
-members = ["pcpproxy"]
+members = ["pcpproxy", "peercastoxide-lib", "peercastoxide-server"]
 exclude = ["pcpproxy_gui"]
+resolver = "2"
+
+[workspace.dependencies]
+peercastoxide-lib = { path = "peercastoxide-lib" }
