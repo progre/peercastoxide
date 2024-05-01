@@ -5,3 +5,4 @@ resolver = "2"
 
 [workspace.dependencies]
 peercastoxide-lib = { path = "peercastoxide-lib" }
+tracing = { version = "0.1.40", features = ["attributes"] }

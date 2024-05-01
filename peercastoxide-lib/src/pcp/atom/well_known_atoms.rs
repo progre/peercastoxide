@@ -1,35 +1,101 @@
-use std::net::SocketAddr;
+use std::fmt::Debug;
 
-use super::{Atom, *};
+use super::{AtomString, Flg1, Id, IpAddr, SocketAddr, VExP};
 
-pub fn pcp_ipv4() -> Atom {
-    Atom::u32(PCP, 1)
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename = "pcp\n")]
+pub struct Pcp(pub u32);
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename = "quit\n")]
+pub struct Quit(pub u32);
+
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename = "helo")]
+pub struct Helo {
+    pub sid: Id,
+    pub agnt: Option<AtomString>,
+    pub ver: Option<u32>,
+    pub port: Option<u16>,
+    pub ping: Option<u16>,
+    pub bcid: Option<Id>,
 }
 
-pub fn pcp_ipv6() -> Atom {
-    Atom::u32(PCP, 100)
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename = "oleh")]
+pub struct Oleh {
+    pub sid: Id,
+    pub agnt: Option<AtomString>,
+    pub ver: Option<u32>,
+    pub rip: Option<IpAddr>,
+    pub port: Option<u16>,
 }
 
-pub fn helo_minimum(session_id: [u8; 16]) -> Atom {
-    Atom::parent(HELO, vec![Atom::child(SID, session_id.into())])
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename = "host")]
+pub struct Host {
+    pub cid: Id,
+    pub id: Id,
+    #[serde(rename = "ip\0\0port")]
+    pub ip_port: Vec<SocketAddr>,
+    pub numl: u32,
+    pub numr: u32,
+    pub uptm: u32,
+    pub ver: u32,
+    pub vevp: u32,
+    pub vexp: VExP,
+    pub vexn: u16,
+    pub flg1: Flg1,
+    pub oldp: u32,
+    pub newp: u32,
+    pub upip: Option<IpAddr>,
+    pub uppt: Option<u32>, // WTF
+    pub uphp: Option<u32>,
 }
 
-pub fn oleh(session_id: [u8; 16], agent_name: &str, peer_addr: SocketAddr) -> Atom {
-    Atom::parent(
-        OLEH,
-        vec![
-            Atom::child(SID, session_id.into()),
-            Atom::str(AGNT, agent_name).unwrap(),
-            Atom::u32(VER, 1218),
-            match peer_addr {
-                SocketAddr::V4(v4) => Atom::ipv4(RIP, v4.ip()),
-                SocketAddr::V6(v6) => Atom::ipv6(RIP, v6.ip()),
-            },
-            Atom::u16(PORT, peer_addr.port()),
-        ],
-    )
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename = "info")]
+pub struct Info {
+    pub name: AtomString,
+    pub bitr: u32,
+    pub gnre: AtomString,
+    pub url: AtomString,
+    pub desc: AtomString,
+    pub cmnt: AtomString,
+    pub r#type: AtomString,
+    pub styp: AtomString,
+    pub sext: AtomString,
 }
 
-pub fn oleh_minimum(session_id: Vec<u8>) -> Atom {
-    Atom::parent(OLEH, vec![Atom::child(SID, session_id)])
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename = "trck")]
+pub struct Trck {
+    pub titl: AtomString,
+    pub crea: AtomString,
+    pub url: AtomString,
+    pub albm: AtomString,
+}
+
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename = "chan")]
+pub struct Chan {
+    pub id: Id,
+    pub bcid: Id,
+    pub info: Info,
+    pub trck: Trck,
+}
+
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename = "bcst")]
+pub struct Bcst {
+    pub grp: u8,
+    pub hops: u8,
+    pub ttl: u8,
+    pub from: Id,
+    pub vers: u32,
+    pub vrvp: u32,
+    pub vexp: VExP,
+    pub vexn: u16,
+    pub chan: Chan,
+    pub host: Host,
 }

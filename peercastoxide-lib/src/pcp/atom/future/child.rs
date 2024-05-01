@@ -3,36 +3,14 @@ use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use anyhow::{anyhow, bail, Result};
-use derive_new::new;
 use regex::Regex;
 
-use crate::pcp::atom::to_string_without_zero_padding;
+use crate::pcp::atom::{to_string_without_zero_padding, Flg1};
 
-use super::{well_known_identifiers::*, Identifier};
+use super::custom_atom::Identifier;
+use super::well_known_identifiers::*;
 
-fn from_flg1_to_string(data: u8) -> String {
-    let tracker = data & 1 << 0 != 0;
-    let relay = data & 1 << 1 != 0;
-    let direct = data & 1 << 2 != 0;
-    let push = data & 1 << 3 != 0;
-    let recv = data & 1 << 4 != 0;
-    let cin = data & 1 << 5 != 0;
-    let private = data & 1 << 6 != 0;
-    let unused = data & 1 << 7 != 0;
-    format!(
-        "{}|{}|{}|{}|{}|{}|{}|{}",
-        if tracker { "TRACKER" } else { "tracker" },
-        if relay { "RELAY" } else { "relay" },
-        if direct { "DIRECT" } else { "direct" },
-        if push { "PUSH" } else { "push" },
-        if recv { "RECV" } else { "recv" },
-        if cin { "CIN" } else { "cin" },
-        if private { "PRIVATE" } else { "private" },
-        if unused { "!" } else { "_" },
-    )
-}
-
-#[derive(Debug, Eq, PartialEq, new)]
+#[derive(Debug, Eq, PartialEq, derive_new::new)]
 pub struct AtomChild {
     identifier: Identifier,
     data: Vec<u8>,
@@ -75,7 +53,7 @@ impl AtomChild {
                     }
                 )
             }
-            FLG1 if self.data().len() == 1 => from_flg1_to_string(self.data()[0]),
+            FLG1 if self.data().len() == 1 => format!("{:?}", Flg1(self.data()[0])),
             _ => self
                 .data()
                 .iter()

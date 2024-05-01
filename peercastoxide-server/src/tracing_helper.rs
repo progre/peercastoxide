@@ -1,4 +1,4 @@
-use std::{num::NonZeroU8, panic};
+use std::{env, num::NonZeroU8, panic};
 
 use time::format_description::well_known::{
     iso8601::{self, EncodedConfig},
@@ -37,12 +37,17 @@ fn init_tracing<T: FormatTime + Send + Sync + 'static>(
         concat!(env!("CARGO_CRATE_NAME"), "=info,peercastoxide_lib=info")
     };
     let filter = EnvFilter::new(DIRECTIVES);
-    let reg = tracing_subscriber::registry().with(layer.with_filter(filter));
+    let reg = tracing_subscriber::registry()
+        .with(layer.with_filter(filter))
+        .with(console_subscriber::ConsoleLayer::builder().spawn());
     tracing::subscriber::set_global_default(reg).unwrap();
     panic::set_hook(Box::new(|panic| error!("{}", panic)));
 }
 
 pub fn init() {
+    if cfg!(debug_assertions) {
+        env::set_var("RUST_BACKTRACE", "1");
+    }
     const MY_CONFIG: EncodedConfig = iso8601::Config::DEFAULT
         .set_time_precision(iso8601::TimePrecision::Second {
             decimal_digits: NonZeroU8::new(6),

@@ -7,7 +7,7 @@ use tokio::io::AsyncWrite;
 use tokio::io::AsyncWriteExt;
 use tracing::trace;
 
-use super::atom::Atom;
+use super::custom_atom::CustomAtom;
 
 pub struct AtomStreamReader<T>
 where
@@ -24,12 +24,12 @@ where
         Self { stream }
     }
 
-    pub async fn read_atom(&mut self) -> Result<Option<Atom>> {
+    pub async fn read_atom(&mut self) -> Result<Option<CustomAtom>> {
         self.read_atom_recursive().await
     }
 
     #[async_recursion]
-    async fn read_atom_recursive(&mut self) -> Result<Option<Atom>> {
+    async fn read_atom_recursive(&mut self) -> Result<Option<CustomAtom>> {
         let mut identifier = [0u8; 4];
         let n = self.stream.read_exact(&mut identifier).await?;
         if n == 0 {
@@ -62,11 +62,11 @@ where
                         .ok_or_else(|| anyhow!("invalid atom"))?,
                 );
             }
-            return Ok(Some(Atom::parent(identifier, contents)));
+            return Ok(Some(CustomAtom::parent(identifier, contents)));
         }
         let mut buf = vec![0; length as usize];
         self.stream.read_exact(buf.as_mut()).await?;
-        Ok(Some(Atom::child(identifier, buf)))
+        Ok(Some(CustomAtom::child(identifier, buf)))
     }
 }
 
@@ -85,15 +85,15 @@ where
         Self { stream }
     }
 
-    pub async fn write_atom(&mut self, atom: &Atom) -> Result<()> {
+    pub async fn write_atom(&mut self, atom: &CustomAtom) -> Result<()> {
         self.write_atom_recursive(atom).await
     }
 
     #[async_recursion]
-    async fn write_atom_recursive(&mut self, atom: &Atom) -> Result<()> {
+    async fn write_atom_recursive(&mut self, atom: &CustomAtom) -> Result<()> {
         self.stream.write_all(atom.identifier()).await?;
         match atom {
-            Atom::Parent(parent) => {
+            CustomAtom::Parent(parent) => {
                 let length = 0x80000000u32 | parent.children().len() as u32;
                 self.stream.write_u32_le(length).await?;
                 for child in parent.children() {
@@ -101,7 +101,7 @@ where
                 }
                 Ok(())
             }
-            Atom::Child(child) => {
+            CustomAtom::Child(child) => {
                 self.stream.write_u32_le(child.data().len() as u32).await?;
                 self.stream.write_all(child.data()).await?;
                 Ok(())

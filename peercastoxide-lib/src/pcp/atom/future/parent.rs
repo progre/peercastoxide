@@ -3,13 +3,15 @@ use std::fmt::{Display, Formatter};
 use derive_new::new;
 use getset::Getters;
 
-use super::{to_string_without_zero_padding, Atom, Identifier};
+use crate::pcp::atom::to_string_without_zero_padding;
+
+use super::custom_atom::{CustomAtom, Identifier};
 
 #[derive(Debug, Eq, Getters, PartialEq, new)]
 pub struct AtomParent {
     identifier: Identifier,
     #[getset(get = "pub")]
-    children: Vec<Atom>,
+    children: Vec<CustomAtom>,
 }
 
 impl AtomParent {
@@ -17,7 +19,7 @@ impl AtomParent {
         self.identifier.0.as_ref()
     }
 
-    pub fn children_mut(&mut self) -> &mut Vec<Atom> {
+    pub fn children_mut(&mut self) -> &mut Vec<CustomAtom> {
         &mut self.children
     }
 }
@@ -32,14 +34,14 @@ impl Display for AtomParent {
         let mut s = f.debug_list();
         for child in &self.children {
             match child {
-                Atom::Parent(parent) => {
+                CustomAtom::Parent(parent) => {
                     if is_pretty {
                         s.entry(&format_args!("{:#}", parent));
                     } else {
                         s.entry(&format_args!("{}", parent));
                     }
                 }
-                Atom::Child(child) => {
+                CustomAtom::Child(child) => {
                     if is_pretty {
                         s.entry(&format_args!("{:#}", child));
                     } else {
