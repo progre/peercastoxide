@@ -1,6 +1,7 @@
 mod deserializer;
 pub mod future;
 mod serializer;
+mod unknown;
 
 pub mod well_known_atoms;
 pub mod well_known_protocols;

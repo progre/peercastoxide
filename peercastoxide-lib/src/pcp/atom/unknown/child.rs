@@ -7,8 +7,8 @@ use regex::Regex;
 
 use crate::pcp::atom::{to_string_without_zero_padding, Flg1};
 
-use super::custom_atom::Identifier;
 use super::well_known_identifiers::*;
+use super::Identifier;
 
 #[derive(Debug, Eq, PartialEq, derive_new::new)]
 pub struct AtomChild {

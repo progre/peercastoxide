@@ -1,3 +1,7 @@
+mod child;
+mod parent;
+pub mod well_known_identifiers;
+
 use std::{
     borrow::Cow,
     fmt::{Display, Formatter},
@@ -8,7 +12,7 @@ use std::ffi::{CString, NulError};
 
 use crate::pcp::atom::to_string_without_zero_padding;
 
-use super::{child::AtomChild, parent::AtomParent};
+use self::{child::AtomChild, parent::AtomParent};
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Identifier(pub Cow<'static, [u8; 4]>);
@@ -26,13 +30,13 @@ impl From<[u8; 4]> for Identifier {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum CustomAtom {
+pub enum UnknownAtom {
     Parent(AtomParent),
     Child(AtomChild),
 }
 
-impl CustomAtom {
-    pub fn parent(identifier: impl Into<Identifier>, children: Vec<CustomAtom>) -> Self {
+impl UnknownAtom {
+    pub fn parent(identifier: impl Into<Identifier>, children: Vec<UnknownAtom>) -> Self {
         Self::Parent(AtomParent::new(identifier.into(), children))
     }
 
@@ -75,21 +79,21 @@ impl CustomAtom {
 
     pub fn identifier(&self) -> &[u8; 4] {
         match self {
-            CustomAtom::Parent(parent) => parent.identifier(),
-            CustomAtom::Child(child) => child.identifier(),
+            UnknownAtom::Parent(parent) => parent.identifier(),
+            UnknownAtom::Child(child) => child.identifier(),
         }
     }
 
     pub fn to_identifier_string(&self) -> String {
         let identifier = match self {
-            CustomAtom::Parent(parent) => parent.identifier(),
-            CustomAtom::Child(child) => child.identifier(),
+            UnknownAtom::Parent(parent) => parent.identifier(),
+            UnknownAtom::Child(child) => child.identifier(),
         };
         to_string_without_zero_padding(identifier)
     }
 }
 
-impl Display for CustomAtom {
+impl Display for UnknownAtom {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Parent(parent) => Display::fmt(parent, f),

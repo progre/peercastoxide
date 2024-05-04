@@ -12,11 +12,12 @@ use tokio::{
 };
 use tracing::debug;
 
-use crate::pcp::atom::future::{
-    custom_atom::CustomAtom,
-    well_known_atoms::{helo_minimum, oleh, pcp_ipv4, pcp_ipv6},
-    well_known_identifiers::*,
-    AtomStreamReader, AtomStreamWriter,
+use crate::pcp::atom::{
+    future::{
+        well_known_atoms::{helo_minimum, oleh, pcp_ipv4, pcp_ipv6},
+        AtomStreamReader, AtomStreamWriter,
+    },
+    unknown::{well_known_identifiers::*, UnknownAtom},
 };
 
 async fn ping(
@@ -45,10 +46,10 @@ async fn ping(
     if oleh.identifier() != OLEH {
         bail!("expected oleh but got {}", oleh)
     }
-    let CustomAtom::Parent(oleh) = oleh else {
+    let UnknownAtom::Parent(oleh) = oleh else {
         bail!("expected oleh as parent but it's child")
     };
-    let Some(CustomAtom::Child(sid)) = oleh.children().iter().find(|x| x.identifier() == SID)
+    let Some(UnknownAtom::Child(sid)) = oleh.children().iter().find(|x| x.identifier() == SID)
     else {
         bail!("sid not found")
     };
@@ -57,7 +58,7 @@ async fn ping(
     }
 
     write_stream
-        .write_atom(&CustomAtom::u16(QUIT, 1000))
+        .write_atom(&UnknownAtom::u16(QUIT, 1000))
         .await?;
     spawn(timeout(Duration::from_secs(10), async move {
         let span = tracing::trace_span!("after_ping");
@@ -111,14 +112,14 @@ where
         let identifier = helo.to_identifier_string();
         bail!("expected helo but got {}", identifier)
     }
-    let CustomAtom::Parent(helo) = helo else {
+    let UnknownAtom::Parent(helo) = helo else {
         bail!("expected helo as parent but it's child")
     };
     let peer_sid: [u8; 16] = {
         let Some(sid) = helo.children().iter().find(|x| x.identifier() == SID) else {
             bail!("sid not found")
         };
-        let CustomAtom::Child(sid) = sid else {
+        let UnknownAtom::Child(sid) = sid else {
             bail!("expected sid as child but it's parent")
         };
         match sid.data().try_into() {
@@ -130,7 +131,7 @@ where
         let Some(ping_atom) = helo.children().iter().find(|x| x.identifier() == PING) else {
             break 'block None;
         };
-        let CustomAtom::Child(ping_atom) = ping_atom else {
+        let UnknownAtom::Child(ping_atom) = ping_atom else {
             bail!("expected ping as child but it's parent")
         };
         match ping_atom.to_u16() {
@@ -142,7 +143,7 @@ where
         let Some(port) = helo.children().iter().find(|x| x.identifier() == PORT) else {
             break 'block 0;
         };
-        let CustomAtom::Child(port) = port else {
+        let UnknownAtom::Child(port) = port else {
             bail!("expected port as child but it's parent")
         };
         match port.to_u16() {

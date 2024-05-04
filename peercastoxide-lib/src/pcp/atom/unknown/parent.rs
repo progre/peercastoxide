@@ -5,13 +5,13 @@ use getset::Getters;
 
 use crate::pcp::atom::to_string_without_zero_padding;
 
-use super::custom_atom::{CustomAtom, Identifier};
+use super::{Identifier, UnknownAtom};
 
 #[derive(Debug, Eq, Getters, PartialEq, new)]
 pub struct AtomParent {
     identifier: Identifier,
     #[getset(get = "pub")]
-    children: Vec<CustomAtom>,
+    children: Vec<UnknownAtom>,
 }
 
 impl AtomParent {
@@ -19,7 +19,7 @@ impl AtomParent {
         self.identifier.0.as_ref()
     }
 
-    pub fn children_mut(&mut self) -> &mut Vec<CustomAtom> {
+    pub fn children_mut(&mut self) -> &mut Vec<UnknownAtom> {
         &mut self.children
     }
 }
@@ -34,14 +34,14 @@ impl Display for AtomParent {
         let mut s = f.debug_list();
         for child in &self.children {
             match child {
-                CustomAtom::Parent(parent) => {
+                UnknownAtom::Parent(parent) => {
                     if is_pretty {
                         s.entry(&format_args!("{:#}", parent));
                     } else {
                         s.entry(&format_args!("{}", parent));
                     }
                 }
-                CustomAtom::Child(child) => {
+                UnknownAtom::Child(child) => {
                     if is_pretty {
                         s.entry(&format_args!("{:#}", child));
                     } else {
