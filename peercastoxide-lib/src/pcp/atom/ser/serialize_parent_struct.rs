@@ -4,7 +4,7 @@ use serde::{ser::SerializeStruct, Serialize};
 
 use crate::pcp::atom::{
     is_grouped_atoms,
-    serializer::{
+    ser::{
         count_children::count_children, grouped_atoms::seq_serializer::GroupedAtomsSeqSerializer,
     },
     to_grouped_atoms,

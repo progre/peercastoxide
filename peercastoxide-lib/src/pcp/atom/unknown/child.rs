@@ -5,28 +5,26 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use anyhow::{anyhow, bail, Result};
 use regex::Regex;
 
-use crate::pcp::atom::{to_string_without_zero_padding, Flg1};
+use crate::pcp::atom::to_string_without_zero_padding;
+use crate::pcp::atom::values::Flg1;
 
 use super::well_known_identifiers::*;
 use super::Identifier;
 
-#[derive(Debug, Eq, PartialEq, derive_new::new)]
+#[derive(Debug, Eq, PartialEq, derive_new::new, getset::Getters)]
 pub struct AtomChild {
+    #[get = "pub"]
     identifier: Identifier,
     data: Vec<u8>,
 }
 
 impl AtomChild {
-    pub fn identifier(&self) -> &[u8; 4] {
-        self.identifier.0.as_ref()
-    }
-
     pub fn data(&self) -> &[u8] {
         &self.data
     }
 
     fn to_data_string(&self) -> String {
-        match self.identifier() {
+        match self.identifier().0.as_ref() {
             PING | PORT | UPPT | VEXP | VEXN if self.data().len() == 2 => {
                 self.to_u16().unwrap().to_string()
             }
@@ -101,7 +99,7 @@ impl Display for AtomChild {
         write!(
             f,
             "{:?}({})",
-            to_string_without_zero_padding(self.identifier()),
+            to_string_without_zero_padding(self.identifier().0.as_ref()),
             self.to_data_string()
         )
     }

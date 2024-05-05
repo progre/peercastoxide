@@ -2,7 +2,7 @@ use std::io::Write;
 
 use serde::{ser::SerializeSeq, Serialize};
 
-use crate::pcp::atom::serializer::AtomSerializeError;
+use crate::pcp::atom::ser::AtomSerializeError;
 
 use super::serializer::GroupedAtomsSerializer;
 

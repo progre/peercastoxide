@@ -4,7 +4,10 @@ use serde::{
     Serialize, Serializer,
 };
 
-use crate::pcp::atom::serializer::{helpers::UnreachableSerializer, AtomSerializeError};
+use crate::{
+    common_unsupported_serializes,
+    pcp::atom::ser::{helpers::UnreachableSerializer, AtomSerializeError},
+};
 
 use super::branch_serializer::BranchSerializer;
 
@@ -25,31 +28,13 @@ impl Serializer for &mut RootSerializer {
     type Error = AtomSerializeError;
     type SerializeSeq = Self;
     type SerializeTuple = Self;
-    type SerializeTupleStruct = UnreachableSerializer;
-    type SerializeTupleVariant = UnreachableSerializer;
-    type SerializeMap = UnreachableSerializer;
+    type SerializeTupleStruct = UnreachableSerializer<Self::Ok>;
+    type SerializeTupleVariant = UnreachableSerializer<Self::Ok>;
+    type SerializeMap = UnreachableSerializer<Self::Ok>;
     type SerializeStruct = Self;
-    type SerializeStructVariant = UnreachableSerializer;
+    type SerializeStructVariant = UnreachableSerializer<Self::Ok>;
 
-    fn serialize_bool(self, _v: bool) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_i8(self, _v: i8) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_i16(self, _v: i16) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_i32(self, _v: i32) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_i64(self, _v: i64) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
+    common_unsupported_serializes! {}
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
         BranchSerializer::new(None).serialize_u8(v)
@@ -63,28 +48,8 @@ impl Serializer for &mut RootSerializer {
         BranchSerializer::new(None).serialize_u32(v)
     }
 
-    fn serialize_u64(self, _v: u64) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_f32(self, _v: f32) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_f64(self, _v: f64) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_char(self, _v: char) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_str(self, _v: &str) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
+    fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
+        BranchSerializer::new(None).serialize_str(v)
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
@@ -98,23 +63,6 @@ impl Serializer for &mut RootSerializer {
         BranchSerializer::new(None).serialize_some(v)
     }
 
-    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_unit_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-    ) -> Result<Self::Ok, Self::Error> {
-        unreachable!()
-    }
-
     fn serialize_newtype_struct<T>(
         self,
         name: &'static str,
@@ -124,19 +72,6 @@ impl Serializer for &mut RootSerializer {
         T: ?Sized + Serialize,
     {
         BranchSerializer::new(None).serialize_newtype_struct(name, value)
-    }
-
-    fn serialize_newtype_variant<T>(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
-    ) -> Result<Self::Ok, Self::Error>
-    where
-        T: ?Sized + Serialize,
-    {
-        unreachable!()
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
@@ -149,26 +84,8 @@ impl Serializer for &mut RootSerializer {
         Ok(self)
     }
 
-    fn serialize_tuple_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        unreachable!()
-    }
-
-    fn serialize_tuple_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        unreachable!()
-    }
-
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        unreachable!()
+        Err(AtomSerializeError::unsupported_structure("map"))
     }
 
     fn serialize_struct(
@@ -177,16 +94,6 @@ impl Serializer for &mut RootSerializer {
         _len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
         Ok(self)
-    }
-
-    fn serialize_struct_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        unreachable!()
     }
 }
 

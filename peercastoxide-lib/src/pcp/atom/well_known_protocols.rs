@@ -2,7 +2,6 @@ use std::{
     fmt::Debug,
     io::{Read, Write},
     net::{IpAddr, SocketAddr, TcpStream},
-    str::FromStr,
     time::Duration,
 };
 
@@ -12,8 +11,8 @@ use tracing::debug;
 use crate::pcp::atom::{
     self,
     future::AtomStreamReader,
+    values::Id,
     well_known_atoms::{Helo, Oleh, Pcp, Quit},
-    AtomString, Id,
 };
 
 fn leave_connection(stream: TcpStream) -> Result<()> {
@@ -113,9 +112,9 @@ pub fn handshake(
 
     let oleh = Oleh {
         sid: session_id.clone(),
-        agnt: Some(AtomString::from_str(agent_name).unwrap()),
+        agnt: Some(agent_name.into()),
         ver: Some(1218),
-        rip: Some(atom::IpAddr::from_std(&peer_ip_addr)),
+        rip: Some(peer_ip_addr.into()),
         port: Some(peer_port),
     };
     atom::to_writer(stream, oleh)?;

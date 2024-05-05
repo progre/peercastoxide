@@ -9,16 +9,13 @@ use super::{Identifier, UnknownAtom};
 
 #[derive(Debug, Eq, Getters, PartialEq, new)]
 pub struct AtomParent {
+    #[get = "pub"]
     identifier: Identifier,
-    #[getset(get = "pub")]
+    #[get = "pub"]
     children: Vec<UnknownAtom>,
 }
 
 impl AtomParent {
-    pub fn identifier(&self) -> &[u8; 4] {
-        self.identifier.0.as_ref()
-    }
-
     pub fn children_mut(&mut self) -> &mut Vec<UnknownAtom> {
         &mut self.children
     }
@@ -29,7 +26,7 @@ impl Display for AtomParent {
         let is_pretty = f.alternate();
         f.write_str(&format!(
             "{:?} ",
-            to_string_without_zero_padding(self.identifier())
+            to_string_without_zero_padding(self.identifier().0.as_ref())
         ))?;
         let mut s = f.debug_list();
         for child in &self.children {

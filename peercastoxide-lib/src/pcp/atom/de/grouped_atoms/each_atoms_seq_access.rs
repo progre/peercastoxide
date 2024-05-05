@@ -1,10 +1,14 @@
 use std::io::Read;
 
+use anyhow::anyhow;
 use serde::de::{DeserializeSeed, SeqAccess};
 
-use crate::pcp::atom::deserializer::{
-    atom_buf_reader::AtomBufReader, branch_deserializer::BranchDeserializer,
-    raw_identifier_to_string, AtomDeserializeError,
+use crate::pcp::atom::{
+    de::{
+        atom_buf_reader::AtomBufReader, branch_deserializer::BranchDeserializer,
+        AtomDeserializeError,
+    },
+    unknown::Identifier,
 };
 
 pub struct GroupedAtomsEachAtomSeqAccess<'a, R: Read> {
@@ -38,18 +42,16 @@ impl<'a, 'de, R: Read> SeqAccess<'de> for GroupedAtomsEachAtomSeqAccess<'a, R> {
     {
         debug_assert!(self.idx < self.grouped_atoms.len());
         if *self.remaining == 0 {
-            return Err(AtomDeserializeError::Mismatch(format!(
-                "identifier is expected {} but got nothing",
-                raw_identifier_to_string(self.grouped_atoms[self.idx])
-            )));
+            let identifier = Identifier::from(self.grouped_atoms[self.idx]);
+            let err = anyhow!("identifier is expected {} but got nothing", identifier);
+            return Err(AtomDeserializeError::Mismatch(err));
         }
         let identifier = self.de.reader_mut().read_identifier()?;
         if self.grouped_atoms[self.idx] != identifier {
-            return Err(AtomDeserializeError::Mismatch(format!(
-                "identifier is expected {} but got {}",
-                raw_identifier_to_string(self.grouped_atoms[self.idx]),
-                raw_identifier_to_string(identifier)
-            )));
+            let expected = Identifier::from(self.grouped_atoms[self.idx]);
+            let actual = Identifier::from(identifier);
+            let err = anyhow!("identifier is expected {} but got {}", expected, actual);
+            return Err(AtomDeserializeError::Mismatch(err));
         }
         self.idx += 1;
         *self.remaining -= 1;

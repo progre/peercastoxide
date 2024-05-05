@@ -1,6 +1,6 @@
 use std::io::Read;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use super::AtomDeserializeError;
 
@@ -46,8 +46,8 @@ impl<R: Read> AtomBufReader<R> {
         let is_parent = length_src & 0x80000000 != 0;
         let length = length_src & 0x7fffffff;
         if length > 1024 * 1024 {
-            let msg = format!("length too large: {}", length);
-            return Err(AtomDeserializeError::Mismatch(msg));
+            let err = anyhow!("length too large: {}", length);
+            return Err(AtomDeserializeError::Mismatch(err));
         }
         Ok((is_parent, length))
     }
@@ -55,8 +55,8 @@ impl<R: Read> AtomBufReader<R> {
     pub fn read_children_count(&mut self) -> Result<u32, AtomDeserializeError> {
         let (is_parent, count) = self.read_length()?;
         if !is_parent {
-            const MSG: &str = "atom is expected parent but got child";
-            return Err(AtomDeserializeError::Mismatch(MSG.into()));
+            let err = anyhow!("atom is expected parent but got child");
+            return Err(AtomDeserializeError::Mismatch(err));
         }
         Ok(count)
     }
@@ -64,8 +64,8 @@ impl<R: Read> AtomBufReader<R> {
     pub fn read_data_size(&mut self) -> Result<u32, AtomDeserializeError> {
         let (is_parent, size) = self.read_length()?;
         if is_parent {
-            const MSG: &str = "atom is expected child but got parent";
-            return Err(AtomDeserializeError::Mismatch(MSG.into()));
+            let err = anyhow!("atom is expected child but got parent");
+            return Err(AtomDeserializeError::Mismatch(err));
         }
         Ok(size)
     }

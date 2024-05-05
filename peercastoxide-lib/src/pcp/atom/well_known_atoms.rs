@@ -1,20 +1,20 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, net::IpAddr};
 
-use super::{AtomString, Flg1, Id, IpAddr, SocketAddr, VExP};
+use super::values::{AtomIpAddr, Flg1, Id, VExP};
 
 #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename = "pcp\n")]
 pub struct Pcp(pub u32);
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename = "quit\n")]
+#[serde(rename = "quit")]
 pub struct Quit(pub u32);
 
 #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename = "helo")]
 pub struct Helo {
     pub sid: Id,
-    pub agnt: Option<AtomString>,
+    pub agnt: Option<String>,
     pub ver: Option<u32>,
     pub port: Option<u16>,
     pub ping: Option<u16>,
@@ -25,19 +25,22 @@ pub struct Helo {
 #[serde(rename = "oleh")]
 pub struct Oleh {
     pub sid: Id,
-    pub agnt: Option<AtomString>,
+    pub agnt: Option<String>,
     pub ver: Option<u32>,
-    pub rip: Option<IpAddr>,
+    pub rip: Option<AtomIpAddr>,
     pub port: Option<u16>,
 }
 
+pub fn to_std(socket_addr: &(IpAddr, u16)) -> anyhow::Result<std::net::SocketAddr> {
+    Ok(std::net::SocketAddr::new(socket_addr.0, socket_addr.1))
+}
+
 #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename = "host")]
 pub struct Host {
     pub cid: Id,
     pub id: Id,
     #[serde(rename = "ip\0\0port")]
-    pub ip_port: Vec<SocketAddr>,
+    pub ip_port: Vec<(AtomIpAddr, u16)>,
     pub numl: u32,
     pub numr: u32,
     pub uptm: u32,
@@ -48,36 +51,33 @@ pub struct Host {
     pub flg1: Flg1,
     pub oldp: u32,
     pub newp: u32,
-    pub upip: Option<IpAddr>,
+    pub upip: Option<AtomIpAddr>,
     pub uppt: Option<u32>, // WTF
     pub uphp: Option<u32>,
 }
 
 #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename = "info")]
 pub struct Info {
-    pub name: AtomString,
+    pub name: String,
     pub bitr: u32,
-    pub gnre: AtomString,
-    pub url: AtomString,
-    pub desc: AtomString,
-    pub cmnt: AtomString,
-    pub r#type: AtomString,
-    pub styp: AtomString,
-    pub sext: AtomString,
+    pub gnre: String,
+    pub url: String,
+    pub desc: String,
+    pub cmnt: String,
+    pub r#type: String,
+    pub styp: String,
+    pub sext: String,
 }
 
 #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename = "trck")]
 pub struct Trck {
-    pub titl: AtomString,
-    pub crea: AtomString,
-    pub url: AtomString,
-    pub albm: AtomString,
+    pub titl: String,
+    pub crea: String,
+    pub url: String,
+    pub albm: String,
 }
 
 #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename = "chan")]
 pub struct Chan {
     pub id: Id,
     pub bcid: Id,

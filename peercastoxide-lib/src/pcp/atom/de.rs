@@ -3,6 +3,7 @@ mod branch_deserializer;
 mod byte_buf_deserializer;
 mod children_map_access;
 mod grouped_atoms;
+mod helpers;
 mod root_deserializer;
 mod vec_data_seq_access;
 
@@ -11,7 +12,7 @@ use std::{
     io::{self, Read},
 };
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::Deserialize;
 
 use self::root_deserializer::RootDeserializer;
@@ -28,12 +29,21 @@ use self::root_deserializer::RootDeserializer;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AtomDeserializeError {
-    #[error("Atom deserialize io error ({0})")]
+    #[error("Atom deserialize unsupported structure")]
+    UnsupportedStructure(#[source] anyhow::Error),
+    #[error("Atom deserialize io error")]
     Io(#[from] io::Error),
-    #[error("Atom deserialize mismatch ({0})")]
-    Mismatch(String),
-    #[error("Atom deserialize error ({0})")]
+    #[error("Atom deserialize mismatch")]
+    Mismatch(#[source] anyhow::Error),
+    #[error("Atom deserialize error: {0}")]
     Serde(String),
+}
+
+impl AtomDeserializeError {
+    pub fn unsupported_structure(structure: &'static str) -> Self {
+        let err = anyhow!("{} is not supported", structure);
+        AtomDeserializeError::UnsupportedStructure(err)
+    }
 }
 
 impl serde::de::Error for AtomDeserializeError {
@@ -46,12 +56,4 @@ pub fn from_reader<'de, T: Deserialize<'de>>(
     reader: &mut impl Read,
 ) -> Result<T, AtomDeserializeError> {
     T::deserialize(RootDeserializer::new(reader))
-}
-
-fn raw_identifier_to_string(raw_identifier: [u8; 4]) -> String {
-    raw_identifier
-        .into_iter()
-        .take_while(|&x| x != b'\0')
-        .map(|x| x as char)
-        .collect::<String>()
 }

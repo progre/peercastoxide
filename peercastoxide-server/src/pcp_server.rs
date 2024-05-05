@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
-use peercastoxide_lib::pcp::atom::{self, well_known_protocols::handshake, Id};
+use peercastoxide_lib::pcp::atom::{self, values::Id, well_known_protocols::handshake};
 use tokio::{
     net::{TcpListener, TcpStream, ToSocketAddrs},
     select, spawn,

@@ -43,13 +43,16 @@ async fn ping(
         .read_atom()
         .await?
         .ok_or_else(|| anyhow!("end of stream"))?;
-    if oleh.identifier() != OLEH {
+    if oleh.identifier().0.as_ref() != OLEH {
         bail!("expected oleh but got {}", oleh)
     }
     let UnknownAtom::Parent(oleh) = oleh else {
         bail!("expected oleh as parent but it's child")
     };
-    let Some(UnknownAtom::Child(sid)) = oleh.children().iter().find(|x| x.identifier() == SID)
+    let Some(UnknownAtom::Child(sid)) = oleh
+        .children()
+        .iter()
+        .find(|x| x.identifier().0.as_ref() == SID)
     else {
         bail!("sid not found")
     };
@@ -108,7 +111,7 @@ where
         .await?
         .ok_or_else(|| anyhow!("end of stream"))?;
     tracing::trace!("{:#}", helo);
-    if helo.identifier() != HELO {
+    if helo.identifier().0.as_ref() != HELO {
         let identifier = helo.to_identifier_string();
         bail!("expected helo but got {}", identifier)
     }
@@ -116,7 +119,11 @@ where
         bail!("expected helo as parent but it's child")
     };
     let peer_sid: [u8; 16] = {
-        let Some(sid) = helo.children().iter().find(|x| x.identifier() == SID) else {
+        let Some(sid) = helo
+            .children()
+            .iter()
+            .find(|x| x.identifier().0.as_ref() == SID)
+        else {
             bail!("sid not found")
         };
         let UnknownAtom::Child(sid) = sid else {
@@ -128,7 +135,11 @@ where
         }
     };
     let ping_port = 'block: {
-        let Some(ping_atom) = helo.children().iter().find(|x| x.identifier() == PING) else {
+        let Some(ping_atom) = helo
+            .children()
+            .iter()
+            .find(|x| x.identifier().0.as_ref() == PING)
+        else {
             break 'block None;
         };
         let UnknownAtom::Child(ping_atom) = ping_atom else {
@@ -140,7 +151,11 @@ where
         }
     };
     let peer_port = 'block: {
-        let Some(port) = helo.children().iter().find(|x| x.identifier() == PORT) else {
+        let Some(port) = helo
+            .children()
+            .iter()
+            .find(|x| x.identifier().0.as_ref() == PORT)
+        else {
             break 'block 0;
         };
         let UnknownAtom::Child(port) = port else {

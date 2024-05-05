@@ -2,7 +2,7 @@ use std::io::Read;
 
 use serde::de::{DeserializeSeed, SeqAccess};
 
-use crate::pcp::atom::deserializer::{atom_buf_reader::AtomBufReader, AtomDeserializeError};
+use crate::pcp::atom::de::{atom_buf_reader::AtomBufReader, AtomDeserializeError};
 
 use super::deserializer::GroupedAtomsDeserializer;
 

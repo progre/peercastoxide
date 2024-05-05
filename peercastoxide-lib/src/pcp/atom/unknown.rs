@@ -4,18 +4,31 @@ pub mod well_known_identifiers;
 
 use std::{
     borrow::Cow,
+    ffi::{CString, NulError},
     fmt::{Display, Formatter},
     net::{Ipv4Addr, Ipv6Addr},
 };
 
-use std::ffi::{CString, NulError};
+use anyhow::anyhow;
 
 use crate::pcp::atom::to_string_without_zero_padding;
 
-use self::{child::AtomChild, parent::AtomParent};
+pub use self::{child::AtomChild, parent::AtomParent};
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Identifier(pub Cow<'static, [u8; 4]>);
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let buf = self
+            .0
+            .into_iter()
+            .take_while(|&x| x != b'\0')
+            .map(|x| x as char)
+            .collect::<String>();
+        write!(f, "{}", buf)
+    }
+}
 
 impl From<&'static [u8; 4]> for Identifier {
     fn from(data: &'static [u8; 4]) -> Self {
@@ -26,6 +39,23 @@ impl From<&'static [u8; 4]> for Identifier {
 impl From<[u8; 4]> for Identifier {
     fn from(data: [u8; 4]) -> Self {
         Self(Cow::Owned(data))
+    }
+}
+
+impl TryFrom<&str> for Identifier {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let buf = value.as_bytes();
+        if buf.len() > 4 {
+            return Err(anyhow!("Identifier must be 4 bytes or less"));
+        }
+        Ok(Self(Cow::Owned([
+            buf.first().copied().unwrap_or(b'\0'),
+            buf.get(1).copied().unwrap_or(b'\0'),
+            buf.get(2).copied().unwrap_or(b'\0'),
+            buf.get(3).copied().unwrap_or(b'\0'),
+        ])))
     }
 }
 
@@ -77,7 +107,7 @@ impl UnknownAtom {
         ))
     }
 
-    pub fn identifier(&self) -> &[u8; 4] {
+    pub fn identifier(&self) -> &Identifier {
         match self {
             UnknownAtom::Parent(parent) => parent.identifier(),
             UnknownAtom::Child(child) => child.identifier(),
@@ -89,7 +119,7 @@ impl UnknownAtom {
             UnknownAtom::Parent(parent) => parent.identifier(),
             UnknownAtom::Child(child) => child.identifier(),
         };
-        to_string_without_zero_padding(identifier)
+        to_string_without_zero_padding(identifier.0.as_ref())
     }
 }
 

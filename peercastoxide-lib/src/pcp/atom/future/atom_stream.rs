@@ -91,7 +91,7 @@ where
 
     #[async_recursion]
     async fn write_atom_recursive(&mut self, atom: &UnknownAtom) -> Result<()> {
-        self.stream.write_all(atom.identifier()).await?;
+        self.stream.write_all(atom.identifier().0.as_ref()).await?;
         match atom {
             UnknownAtom::Parent(parent) => {
                 let length = 0x80000000u32 | parent.children().len() as u32;
