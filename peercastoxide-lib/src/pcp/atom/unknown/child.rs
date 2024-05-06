@@ -5,7 +5,6 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use anyhow::{anyhow, bail, Result};
 use regex::Regex;
 
-use crate::pcp::atom::to_string_without_zero_padding;
 use crate::pcp::atom::values::Flg1;
 
 use super::well_known_identifiers::*;
@@ -96,11 +95,12 @@ impl AtomChild {
 
 impl Display for AtomChild {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:?}({})",
-            to_string_without_zero_padding(self.identifier().0.as_ref()),
-            self.to_data_string()
-        )
+        let identifier = self.identifier().to_string();
+        if identifier.chars().all(|x| !x.is_ascii_control()) {
+            write!(f, "{}", identifier)?;
+        } else {
+            write!(f, "{:?}", identifier)?;
+        };
+        write!(f, "({})", self.to_data_string())
     }
 }

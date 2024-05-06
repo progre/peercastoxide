@@ -11,12 +11,6 @@ pub use de::from_reader;
 pub use ser::to_writer;
 pub use unknown::{AtomChild, AtomParent, UnknownAtom};
 
-fn to_string_without_zero_padding(string: &[u8]) -> String {
-    String::from_utf8_lossy(string)
-        .trim_end_matches('\0')
-        .to_string()
-}
-
 fn is_grouped_atoms(identifier: &str) -> bool {
     identifier.len() / 4 >= 2
 }

@@ -3,8 +3,6 @@ use std::fmt::{Display, Formatter};
 use derive_new::new;
 use getset::Getters;
 
-use crate::pcp::atom::to_string_without_zero_padding;
-
 use super::{Identifier, UnknownAtom};
 
 #[derive(Debug, Eq, Getters, PartialEq, new)]
@@ -23,11 +21,13 @@ impl AtomParent {
 
 impl Display for AtomParent {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let identifier = self.identifier().to_string();
+        if identifier.chars().all(|x| !x.is_ascii_control()) {
+            write!(f, "{}(", identifier)?;
+        } else {
+            write!(f, "{:?}(", identifier)?;
+        };
         let is_pretty = f.alternate();
-        f.write_str(&format!(
-            "{:?} ",
-            to_string_without_zero_padding(self.identifier().0.as_ref())
-        ))?;
         let mut s = f.debug_list();
         for child in &self.children {
             match child {
@@ -48,6 +48,6 @@ impl Display for AtomParent {
             }
         }
         s.finish()?;
-        Ok(())
+        write!(f, ")")
     }
 }

@@ -12,7 +12,7 @@ use std::{
 
 use anyhow::anyhow;
 
-use crate::pcp::{atom, atom::to_string_without_zero_padding};
+use crate::pcp::atom;
 
 pub use self::{child::AtomChild, parent::AtomParent};
 
@@ -155,7 +155,9 @@ impl UnknownAtom {
             UnknownAtom::Parent(parent) => parent.identifier(),
             UnknownAtom::Child(child) => child.identifier(),
         };
-        to_string_without_zero_padding(identifier.0.as_ref())
+        String::from_utf8_lossy(identifier.0.as_ref())
+            .trim_end_matches('\0')
+            .to_string()
     }
 }
 

@@ -1,4 +1,4 @@
-use std::{fmt::Debug, net::IpAddr};
+use std::fmt::Debug;
 
 use super::values::{AtomIpAddr, Flg1, Id, VExP};
 
@@ -29,10 +29,6 @@ pub struct Oleh {
     pub ver: Option<u32>,
     pub rip: Option<AtomIpAddr>,
     pub port: Option<u16>,
-}
-
-pub fn to_std(socket_addr: &(IpAddr, u16)) -> anyhow::Result<std::net::SocketAddr> {
-    Ok(std::net::SocketAddr::new(socket_addr.0, socket_addr.1))
 }
 
 #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
