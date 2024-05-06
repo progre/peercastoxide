@@ -1,11 +1,14 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
-use peercastoxide_lib::pcp::atom::{self, values::Id, well_known_protocols::handshake};
+use peercastoxide_lib::pcp::atom::{
+    values::Id, well_known_protocols::handshake, AtomStreamReader, AtomStreamWriter,
+};
 use tokio::{
     net::{TcpListener, TcpStream, ToSocketAddrs},
     select, spawn,
-    task::{block_in_place, JoinHandle},
+    task::JoinHandle,
+    time::timeout,
 };
 use tracing::error;
 
@@ -14,33 +17,28 @@ const AGENT_NAME: &str = concat!("PeerCastOxide/", env!("CARGO_PKG_VERSION"));
 async fn process(stream: TcpStream) -> Result<()> {
     let session_id = Id(rand::random());
     let peer_addr = stream.peer_addr()?;
+    let (reader, writer) = stream.into_split();
+    let mut reader = AtomStreamReader::new(reader);
+    let mut writer = AtomStreamWriter::new(writer);
 
-    let mut stream = block_in_place(move || -> Result<TcpStream> {
-        let mut std_stream = stream.into_std()?;
-        std_stream.set_nonblocking(false)?;
-        std_stream.set_read_timeout(Some(Duration::from_secs(15)))?;
-        std_stream.set_write_timeout(Some(Duration::from_secs(15)))?;
-
+    timeout(
+        Duration::from_secs(15),
         handshake(
-            &mut std_stream,
+            &mut reader,
+            &mut writer,
             &session_id,
             peer_addr.ip(),
             AGENT_NAME,
-            Duration::from_secs(15),
-        )?;
-
-        Ok(TcpStream::from_std(std_stream)?)
-    })?;
-
-    let (read_half, _write_half) = stream.split();
-    let mut read_stream = atom::future::AtomStreamReader::new(read_half);
+            Duration::from_secs(5),
+        ),
+    )
+    .await??;
 
     loop {
-        let atom = read_stream
-            .read_atom()
+        let atom = reader
+            .read_unknown_atom()
             .await
-            .map_err(|e| anyhow!("failed: {:?}", e))?
-            .ok_or_else(|| anyhow!("eos"))?;
+            .map_err(|e| anyhow!("failed: {:?}", e))?;
         // let bcst: Bcst = atom::deserializer_from_atom::from_atom(atom)?;
         tracing::trace!("{:#}", atom);
     }

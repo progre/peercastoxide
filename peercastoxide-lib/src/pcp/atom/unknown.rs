@@ -1,19 +1,55 @@
 mod child;
 mod parent;
-pub mod well_known_identifiers;
+mod well_known_identifiers;
 
 use std::{
     borrow::Cow,
     ffi::{CString, NulError},
     fmt::{Display, Formatter},
+    io::Cursor,
     net::{Ipv4Addr, Ipv6Addr},
 };
 
 use anyhow::anyhow;
 
-use crate::pcp::atom::to_string_without_zero_padding;
+use crate::pcp::{atom, atom::to_string_without_zero_padding};
 
 pub use self::{child::AtomChild, parent::AtomParent};
+
+use super::{
+    atom_stream::{AtomStreamReader, AtomStreamWriter},
+    de::AtomDeserializeError,
+    ser::AtomSerializeError,
+};
+
+pub fn from_unknown<'de, T: serde::Deserialize<'de>>(
+    unknown_atom: UnknownAtom,
+) -> Result<T, super::de::AtomDeserializeError> {
+    let mut vec = Vec::new();
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(AtomStreamWriter::new(&mut vec).write_unknown_atom(&unknown_atom))
+            .map_err(AtomDeserializeError::UnsupportedStructure)
+    })?;
+    atom::from_reader(&mut Cursor::new(vec))
+}
+
+pub fn to_unknown<T: serde::Serialize>(
+    value: &T,
+) -> Result<UnknownAtom, super::ser::AtomSerializeError> {
+    let mut vec = Vec::new();
+    crate::pcp::atom::to_writer(&mut vec, value)?;
+    let atom = tokio::task::block_in_place(|| {
+        tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(AtomStreamReader::new(&mut Cursor::new(vec)).read_unknown_atom())
+            .map_err(AtomSerializeError::UnsupportedStructure)
+    })?;
+    Ok(atom)
+}
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Identifier(pub Cow<'static, [u8; 4]>);

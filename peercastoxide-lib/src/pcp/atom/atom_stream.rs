@@ -1,13 +1,16 @@
 use anyhow::bail;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_recursion::async_recursion;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWrite;
 use tokio::io::AsyncWriteExt;
 use tracing::trace;
 
-use crate::pcp::atom::unknown::UnknownAtom;
+use crate::pcp::atom::unknown::to_unknown;
+use crate::pcp::atom::unknown::{from_unknown, UnknownAtom};
 
 pub struct AtomStreamReader<T>
 where
@@ -24,20 +27,19 @@ where
         Self { stream }
     }
 
-    pub async fn read_atom(&mut self) -> Result<Option<UnknownAtom>> {
+    pub async fn read_unknown_atom(&mut self) -> Result<UnknownAtom> {
         self.read_atom_recursive().await
     }
 
+    pub async fn read_atom<De: DeserializeOwned>(&mut self) -> Result<De> {
+        let unknown = self.read_atom_recursive().await?;
+        from_unknown(unknown).map_err(|err| err.into())
+    }
+
     #[async_recursion]
-    async fn read_atom_recursive(&mut self) -> Result<Option<UnknownAtom>> {
+    async fn read_atom_recursive(&mut self) -> Result<UnknownAtom> {
         let mut identifier = [0u8; 4];
-        let n = self.stream.read_exact(&mut identifier).await?;
-        if n == 0 {
-            return Ok(None);
-        }
-        if n != 4 {
-            bail!("invalid atom")
-        }
+        self.stream.read_exact(&mut identifier).await?;
         let length_src = self.stream.read_u32_le().await?;
         let is_parent = length_src & 0x80000000 != 0;
         let length = length_src & 0x7fffffff;
@@ -56,17 +58,13 @@ where
         if is_parent {
             let mut contents = Vec::with_capacity(length as usize);
             for _ in 0..length {
-                contents.push(
-                    self.read_atom_recursive()
-                        .await?
-                        .ok_or_else(|| anyhow!("invalid atom"))?,
-                );
+                contents.push(self.read_atom_recursive().await?);
             }
-            return Ok(Some(UnknownAtom::parent(identifier, contents)));
+            return Ok(UnknownAtom::parent(identifier, contents));
         }
         let mut buf = vec![0; length as usize];
         self.stream.read_exact(buf.as_mut()).await?;
-        Ok(Some(UnknownAtom::child(identifier, buf)))
+        Ok(UnknownAtom::child(identifier, buf))
     }
 }
 
@@ -85,7 +83,11 @@ where
         Self { stream }
     }
 
-    pub async fn write_atom(&mut self, atom: &UnknownAtom) -> Result<()> {
+    pub async fn write_atom(&mut self, atom: &impl Serialize) -> Result<()> {
+        self.write_atom_recursive(&to_unknown(atom)?).await
+    }
+
+    pub async fn write_unknown_atom(&mut self, atom: &UnknownAtom) -> Result<()> {
         self.write_atom_recursive(atom).await
     }
 
