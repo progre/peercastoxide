@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.82"
+anyhow.workspace = true
 async-recursion = "1.1.0"
-derive-new = "0.6.0"
-getset = "0.1.2"
+derive-new.workspace = true
+getset.workspace = true
 regex = "1.10.4"
-serde = { version = "1.0.198", features = ["serde_derive"] }
+serde = { workspace = true, features = ["serde_derive"] }
 thiserror = "1.0.59"
-tokio = { version = "1.37.0", features = ["io-util", "net", "rt", "time"] }
+tokio = { workspace = true, features = ["io-util", "net", "rt", "time"] }
 tracing.workspace = true
