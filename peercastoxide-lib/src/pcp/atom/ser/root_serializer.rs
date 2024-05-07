@@ -34,7 +34,6 @@ impl<W: Write> Serializer for RootSerializer<W> {
     where
         T: ?Sized + Serialize,
     {
-        tracing::trace!(%name, "serialize_newtype_struct");
         debug_assert!(name.is_ascii());
         let mut identifier = [0u8; 4];
         identifier.copy_from_slice(format!("{:\0<4}", name).as_bytes());

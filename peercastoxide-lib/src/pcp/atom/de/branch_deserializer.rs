@@ -60,7 +60,6 @@ impl<'a, 'de, R: Read> Deserializer<'de> for &mut BranchDeserializer<'a, R> {
         {
             let grouped_atoms = raw_grouped_atoms_to_string(grouped_atoms);
             self.found_grouped_atoms_idx = Some(idx);
-            tracing::trace! { %grouped_atoms, "deserialize_identifier" }
             return visitor.visit_string(grouped_atoms);
         }
         let identifier = Identifier::from(self.reader.read_identifier()?).to_string();
