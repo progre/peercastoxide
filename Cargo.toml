@@ -1,0 +1,13 @@
+[workspace]
+members = ["pcpproxy", "peercastoxide-lib", "peercastoxide-server"]
+exclude = ["pcpproxy_gui"]
+resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1.0.82"
+derive-new = "0.6.0"
+getset = "0.1.2"
+peercastoxide-lib = { path = "peercastoxide-lib" }
+serde = "1.0.198"
+tokio = "1.37.0"
+tracing = { version = "0.1.40", features = ["attributes"] }

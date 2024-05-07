@@ -1,0 +1,9 @@
+/pcpproxy_gui/dist
+/pcpproxy_gui/node_modules
+/pcpproxy_gui/src-tauri/pcpproxy.exe
+/pcpproxy_gui/src-tauri/target
+/pcpproxy_gui/src-tauri/WixTools
+/target
+
+/pcpviewer
+/peercastoxide
