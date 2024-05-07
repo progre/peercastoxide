@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.82"
 bitflags = "2.5.0"
-clap = "4.5.4"
+clap = { version = "4.5.4", features = ["derive"] }
 console-subscriber = "0.2.0"
 derive-new = "0.6.0"
 futures = "0.3.30"

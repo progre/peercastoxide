@@ -1,4 +1,8 @@
-use std::time::Duration;
+use std::{
+    net::{IpAddr, SocketAddr},
+    str::FromStr,
+    time::Duration,
+};
 
 use anyhow::{anyhow, Result};
 use peercastoxide_lib::pcp::atom::{
@@ -57,10 +61,12 @@ async fn accept_connenctions_loop(addr: impl ToSocketAddrs) -> Result<()> {
     }
 }
 
-pub async fn listen() -> anyhow::Result<()> {
+pub async fn listen(port: u16) -> anyhow::Result<()> {
     tracing::trace!("listen");
-    let v4: JoinHandle<Result<()>> = spawn(accept_connenctions_loop("0.0.0.0:7145"));
-    let v6: JoinHandle<Result<()>> = spawn(accept_connenctions_loop("[::]:7145"));
+    let socket = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), port);
+    let v4: JoinHandle<Result<()>> = spawn(accept_connenctions_loop(socket));
+    let socket = SocketAddr::new(IpAddr::from_str("::").unwrap(), port);
+    let v6: JoinHandle<Result<()>> = spawn(accept_connenctions_loop(socket));
     select! {
         result = v4 => {
             result??;
