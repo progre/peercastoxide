@@ -1,3 +1,5 @@
+mod create_xml;
+
 use std::num::NonZeroU16;
 
 use clap::Parser;

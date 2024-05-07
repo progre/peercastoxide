@@ -5,9 +5,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use anyhow::{anyhow, bail, Result};
 use regex::Regex;
 
-use crate::pcp::atom::values::Flg1;
+use crate::pcp::atom::{values::Flg1, well_known_identifiers::*};
 
-use super::well_known_identifiers::*;
 use super::Identifier;
 
 #[derive(Debug, Eq, PartialEq, derive_new::new, getset::Getters)]

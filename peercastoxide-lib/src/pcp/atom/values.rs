@@ -1,17 +1,23 @@
 use std::{
-    fmt::{Debug, Formatter},
+    fmt::{Debug, Display, Formatter},
     net::IpAddr,
 };
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Eq, Hash, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(transparent)]
 pub struct Id(pub [u8; 16]);
 
-impl Debug for Id {
+impl Display for Id {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         self.0.iter().try_for_each(|&x| write!(f, "{:02x}", x))
+    }
+}
+
+impl Debug for Id {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        Display::fmt(self, f)
     }
 }
 
@@ -19,9 +25,33 @@ impl Debug for Id {
 #[serde(transparent)]
 pub struct Flg1(pub u8);
 
+impl Flg1 {
+    pub fn tracker(&self) -> bool {
+        self.0 & 1 << 0 != 0
+    }
+    pub fn relay(&self) -> bool {
+        self.0 & 1 << 1 != 0
+    }
+    pub fn direct(&self) -> bool {
+        self.0 & 1 << 2 != 0
+    }
+    pub fn push(&self) -> bool {
+        self.0 & 1 << 3 != 0
+    }
+    pub fn recv(&self) -> bool {
+        self.0 & 1 << 4 != 0
+    }
+    pub fn cin(&self) -> bool {
+        self.0 & 1 << 5 != 0
+    }
+    pub fn private(&self) -> bool {
+        self.0 & 1 << 6 != 0
+    }
+}
+
 impl Debug for Flg1 {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        let tr = self.0 & 1 << 0 != 0;
+        let tracker = self.0 & 1 << 0 != 0;
         let relay = self.0 & 1 << 1 != 0;
         let direct = self.0 & 1 << 2 != 0;
         let push = self.0 & 1 << 3 != 0;
@@ -32,7 +62,7 @@ impl Debug for Flg1 {
         write!(
             f,
             "{}|{}|{}|{}|{}|{}|{}|{}",
-            if tr { "TR" } else { "tr" },
+            if tracker { "TR" } else { "tr" },
             if relay { "RE" } else { "re" },
             if direct { "DI" } else { "di" },
             if push { "PU" } else { "pu" },
@@ -54,8 +84,14 @@ impl Debug for VExP {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct AtomIpAddr(pub IpAddr);
+
+impl Debug for AtomIpAddr {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
 
 impl From<IpAddr> for AtomIpAddr {
     fn from(ip_addr: IpAddr) -> Self {

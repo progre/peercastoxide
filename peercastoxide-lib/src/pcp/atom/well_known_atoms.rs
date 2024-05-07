@@ -32,6 +32,36 @@ pub struct Oleh {
 }
 
 #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct Info {
+    pub name: String,
+    pub bitr: Option<u32>,
+    pub gnre: String,
+    pub url: String,
+    pub desc: String,
+    pub cmnt: String,
+    pub r#type: Option<String>,
+    pub styp: Option<String>,
+    pub sext: Option<String>,
+}
+
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct Trck {
+    pub titl: String,
+    pub crea: String,
+    pub url: String,
+    pub albm: String,
+    pub gnre: Option<String>,
+}
+
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct Chan {
+    pub id: Id,
+    pub bcid: Id,
+    pub info: Info,
+    pub trck: Trck,
+}
+
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Host {
     pub cid: Id,
     pub id: Id,
@@ -45,40 +75,11 @@ pub struct Host {
     pub vexp: VExP,
     pub vexn: u16,
     pub flg1: Flg1,
-    pub oldp: u32,
-    pub newp: u32,
+    pub oldp: Option<u32>,
+    pub newp: Option<u32>,
     pub upip: Option<AtomIpAddr>,
     pub uppt: Option<u32>, // WTF
     pub uphp: Option<u32>,
-}
-
-#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-pub struct Info {
-    pub name: String,
-    pub bitr: u32,
-    pub gnre: String,
-    pub url: String,
-    pub desc: String,
-    pub cmnt: String,
-    pub r#type: String,
-    pub styp: String,
-    pub sext: String,
-}
-
-#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-pub struct Trck {
-    pub titl: String,
-    pub crea: String,
-    pub url: String,
-    pub albm: String,
-}
-
-#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-pub struct Chan {
-    pub id: Id,
-    pub bcid: Id,
-    pub info: Info,
-    pub trck: Trck,
 }
 
 #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -92,6 +93,7 @@ pub struct Bcst {
     pub vrvp: u32,
     pub vexp: VExP,
     pub vexn: u16,
+    pub cid: Option<Id>,
     pub chan: Chan,
     pub host: Host,
 }
